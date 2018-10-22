@@ -8,7 +8,7 @@ def array_from_IntervalSeries(intervalSeries):
     '''Create m x 2 numpy array from the set of intervals in a pynwb.misc.IntervalSeries object'''
     if not isinstance(intervalSeries, pynwb.misc.IntervalSeries):
         raise TypeError("'intervalSeries' parameter must be of type pynwb.misc.IntervalSeries")
-    assert np.all(np.abs(cintervalSeries.data)==1), "Multiple interval types in an IntervalSeries not supported"
+    assert np.all(np.abs(intervalSeries.data)==1), "Multiple interval types in an IntervalSeries not supported"
     return np.reshape(intervalSeries.timestamps, (-1,2))
 
 def array_from_intervals(intervals):
@@ -95,7 +95,7 @@ def intervals_from_continuous(data, timestamps, fn):
 
 def plot_pointprocess(intervals, times, ypos=1, axis=None, interval_height=25, tick_height=10, color='b'):
     '''Plot a Point Process (events + their enclosing intervals)'''
-    ivl_arr = qu.array_from_intervals(obs_intervals).T
+    ivl_arr = array_from_intervals(intervals).T
     
     if not axis:
         axis = plt.axes()
@@ -106,7 +106,7 @@ def plot_pointprocess(intervals, times, ypos=1, axis=None, interval_height=25, t
                      marker='',
                      alpha=0.1,
                      solid_capstyle='butt')
-    times_h = ax1.plot(times, np.full(times.shape, ypos),
+    times_h = axis.plot(times, np.full(times.shape, ypos),
                        color=color,
                        marker='|', 
                        markersize=tick_height, 
