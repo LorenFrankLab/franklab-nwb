@@ -1,5 +1,10 @@
-import pynwb
+from math import floor
+
 import numpy as np
+import matplotlib.ticker as mticker
+
+import pynwb
+
 
 # pip install python-intervals, *NOT* pip install intervals
 import intervals as iv
@@ -112,3 +117,31 @@ def plot_pointprocess(intervals, times, ypos=1, axis=None, interval_height=25, t
                        markersize=tick_height, 
                        linestyle='')
     return int_h, times_h
+
+# matplotlib ticklabel formatter
+# e.g.:
+# ax1.xaxis.set_major_formatter(fmt_truncate_posix)
+
+def fmt_truncate_posix (x, pos):
+    oom = 6
+    #     offset_str = "%de%d + \n" % (x // 10 ** oom, oom)
+    ellipsis = "\u2026"
+#    offset_str = "%d" % (x // 10 ** oom)
+    offset_str = format(floor(x // 10 ** oom), ",d")
+    # oom zero-padded digits before decimal point and up to 6 digits past it 
+    # (no trailing zeros)
+    # NB no way to do this with single format string: %05.11g gives too many digits past 
+    #the decimal when integer part is small.
+#     remainder_str = ("%%0%dd" % oom) % (x % 10 ** oom) + \
+#                     ("%0.6g" % (x % 1))[1:] # omit leading 0
+    remainder_str = format(floor(x % 10 ** oom), "07,d") + \
+                    ("%0.6g" % (x % 1))[1:] # omit leading 0
+
+    if pos == 1: # first visible tick
+        print (x)
+#         return offset_str + ellipsis + "\n" + ellipsis + remainder_str
+#         return offset_str + "," + remainder_str
+        return offset_str + "," + "\n" + ellipsis + remainder_str
+
+    else:
+        return "\u2026" + remainder_str
