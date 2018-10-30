@@ -137,11 +137,11 @@ def fmt_truncate_posix (x, pos):
     remainder_str = format(floor(x % 10 ** oom), "07,d") + \
                     ("%0.6g" % (x % 1))[1:] # omit leading 0
 
-    if pos == 1: # first visible tick
+    if pos == 0: # first visible tick
         print (x)
 #         return offset_str + ellipsis + "\n" + ellipsis + remainder_str
 #         return offset_str + "," + remainder_str
-        return offset_str + "," + "\n" + ellipsis + remainder_str
+        return offset_str + "," + remainder_str
 
     else:
         return "\u2026" + remainder_str
