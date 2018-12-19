@@ -1,33 +1,21 @@
 groups:
-- neurodata_type_def: FL_BehavioralWorld
-  neurodata_type_inc: NWBContainer
-  name: FL_BehavioralWorld
-  doc: Collection of geometries (1D, 2D, or 3D) describing the behavioral environment
-- neurodata_type_def: FL_BehavioralFSM
-  neurodata_type_inc: NWBContainer
-  name: FL_BehavioralFSM
-  doc: Finite state machine describing non-overlapping behavioral states
-- neurodata_type_def: FL_BehavioralEvents
-  neurodata_type_inc: DynamicTable
-  name: FL_BehavioralEvents
-  doc: DynamicTable of describing possibly-overlapping behavioral/experimental events
 - neurodata_type_def: FL_BehavioralTask
   neurodata_type_inc: NWBContainer
   name: FL_BehavioralTask
   doc: Container of objects for describing a behavioral task
   groups:
-  - neurodata_type_inc: FL_BehavioralWorld
+  - neurodata_type_def: FL_BehavioralWorld
+    neurodata_type_inc: NWBContainer
     name: world
     doc: Collection of geometries (1D, 2D, or 3D) describing the behavioral environment
-    quantity: '?'
-  - neurodata_type_inc: FL_BehavioralFSM
+  - neurodata_type_def: FL_BehavioralFSM
+    neurodata_type_inc: NWBContainer
     name: fsm
     doc: Finite state machine describing non-overlapping behavioral states
-    quantity: '?'
-  - neurodata_type_inc: FL_BehavioralEvents
+  - neurodata_type_def: FL_BehavioralEvents
+    neurodata_type_inc: DynamicTable
     name: events
     doc: DynamicTable of describing possibly-overlapping behavioral/experimental events
-    quantity: '?'
 - neurodata_type_def: FL_BehavioralEpochs
   neurodata_type_inc: DynamicTable
   name: FL_BehavioralEpochs
