@@ -1,0 +1,6 @@
+namespaces:
+- doc: Extension for use in the Frank Lab
+  name: franklab
+  schema:
+  - namespace: core
+  - source: franklab.extensions.yaml

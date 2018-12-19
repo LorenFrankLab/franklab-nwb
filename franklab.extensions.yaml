@@ -1,0 +1,69 @@
+groups:
+- neurodata_type_def: FL_BehavioralWorld
+  neurodata_type_inc: NWBContainer
+  name: FL_BehavioralWorld
+  doc: Collection of geometries (1D, 2D, or 3D) describing the behavioral environment
+- neurodata_type_def: FL_BehavioralFSM
+  neurodata_type_inc: NWBContainer
+  name: FL_BehavioralFSM
+  doc: Finite state machine describing non-overlapping behavioral states
+- neurodata_type_def: FL_BehavioralEvents
+  neurodata_type_inc: DynamicTable
+  name: FL_BehavioralEvents
+  doc: DynamicTable of describing possibly-overlapping behavioral/experimental events
+- neurodata_type_def: FL_BehavioralTask
+  neurodata_type_inc: NWBContainer
+  name: FL_BehavioralTask
+  doc: Container of objects for describing a behavioral task
+  groups:
+  - neurodata_type_inc: FL_BehavioralWorld
+    name: world
+    doc: Collection of geometries (1D, 2D, or 3D) describing the behavioral environment
+    quantity: '?'
+  - neurodata_type_inc: FL_BehavioralFSM
+    name: fsm
+    doc: Finite state machine describing non-overlapping behavioral states
+    quantity: '?'
+  - neurodata_type_inc: FL_BehavioralEvents
+    name: events
+    doc: DynamicTable of describing possibly-overlapping behavioral/experimental events
+    quantity: '?'
+- neurodata_type_def: FL_BehavioralEpochs
+  neurodata_type_inc: DynamicTable
+  name: FL_BehavioralEpochs
+  doc: DynamicTable for describing behavioral epochs
+  datasets:
+  - neurodata_type_inc: VectorData
+    name: epoch_name
+    dtype: text
+    doc: Name for this epoch
+    quantity: '?'
+  - neurodata_type_inc: VectorData
+    name: task
+    dtype:
+      target_type: FL_BehavioralTask
+      reftype: object
+    doc: Task used in this epoch
+    quantity: '?'
+  - neurodata_type_inc: VectorData
+    name: position
+    dtype:
+      target_type: SpatialSeries
+      reftype: object
+    doc: Animal spatial position during an epoch
+    quantity: '?'
+  - neurodata_type_inc: VectorData
+    name: speed
+    dtype:
+      target_type: TimeSeries
+      reftype: object
+    doc: Animal speed during an epoch
+    quantity: '?'
+  - neurodata_type_inc: VectorData
+    name: head_dir
+    dtype:
+      target_type: SpatialSeries
+      reftype: object
+    doc: Animal head direction during an epoch
+    quantity: '?'
+  quantity: '?'
