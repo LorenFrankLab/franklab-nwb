@@ -12,10 +12,14 @@ groups:
     neurodata_type_inc: NWBContainer
     name: graph
     doc: Graph describing non-overlapping behavioral states
-  - neurodata_type_def: FL_BehavioralEvents
-    neurodata_type_inc: DynamicTable
-    name: events
-    doc: DynamicTable of describing possibly-overlapping behavioral/experimental events
+- neurodata_type_def: FL_BehavioralEvents
+  neurodata_type_inc: DynamicTable
+  name: events
+  doc: DynamicTable of describing possibly-overlapping behavioral/experimental events
+- neurodata_type_def: FL_BehavioralGraphPath
+  neurodata_type_inc: BehavioralTimeSeries
+  name: graph_path
+  doc: Non-overlapping path through a FL_BehavioralGraph
 - neurodata_type_def: FL_BehavioralEpochs
   neurodata_type_inc: DynamicTable
   name: FL_BehavioralEpochs
@@ -25,13 +29,6 @@ groups:
     name: epoch_name
     dtype: text
     doc: Name for this epoch
-    quantity: '?'
-  - neurodata_type_inc: VectorData
-    name: task
-    dtype:
-      target_type: FL_BehavioralTask
-      reftype: object
-    doc: Task used in this epoch
     quantity: '?'
   - neurodata_type_inc: VectorData
     name: position
@@ -53,5 +50,26 @@ groups:
       target_type: CompassDirection
       reftype: object
     doc: Animal head direction during an epoch
+    quantity: '?'
+  - neurodata_type_inc: VectorData
+    name: task
+    dtype:
+      target_type: FL_BehavioralTask
+      reftype: object
+    doc: Task used in this epoch
+    quantity: '?'
+  - neurodata_type_inc: VectorData
+    name: events
+    dtype:
+      target_type: FL_BehavioralEvents
+      reftype: object
+    doc: Events occurring in this epoch
+    quantity: '?'
+  - neurodata_type_inc: VectorData
+    name: graph_path
+    dtype:
+      target_type: FL_BehavioralGraphPath
+      reftype: object
+    doc: Path through a BehavioralGraph in this epoch
     quantity: '?'
   quantity: '?'
