@@ -8,10 +8,10 @@ groups:
     neurodata_type_inc: NWBContainer
     name: world
     doc: Collection of geometries (1D, 2D, or 3D) describing the behavioral environment
-  - neurodata_type_def: FL_BehavioralFSM
+  - neurodata_type_def: FL_BehavioralGraph
     neurodata_type_inc: NWBContainer
-    name: fsm
-    doc: Finite state machine describing non-overlapping behavioral states
+    name: graph
+    doc: Graph describing non-overlapping behavioral states
   - neurodata_type_def: FL_BehavioralEvents
     neurodata_type_inc: DynamicTable
     name: events
@@ -36,21 +36,21 @@ groups:
   - neurodata_type_inc: VectorData
     name: position
     dtype:
-      target_type: SpatialSeries
+      target_type: Position
       reftype: object
     doc: Animal spatial position during an epoch
     quantity: '?'
   - neurodata_type_inc: VectorData
     name: speed
     dtype:
-      target_type: TimeSeries
+      target_type: BehavioralTimeSeries
       reftype: object
     doc: Animal speed during an epoch
     quantity: '?'
   - neurodata_type_inc: VectorData
     name: head_dir
     dtype:
-      target_type: SpatialSeries
+      target_type: CompassDirection
       reftype: object
     doc: Animal head direction during an epoch
     quantity: '?'
