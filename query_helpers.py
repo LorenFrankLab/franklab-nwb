@@ -47,14 +47,17 @@ def intervals_from_IntervalSeries(intervalSeries):
         raise TypeError("'intervalSeries' parameter must be of type pynwb.misc.IntervalSeries")
     return intervals_from_array(array_from_IntervalSeries(intervalSeries))
 
-def times_in_intervals(times, intervals):
-    '''Return list of times that are contained by in a list of intervals (interval.Interval object)'''
+def times_in_intervals(times, intervals, return_indices=False):
+    '''Return list of times that are contained by a list of intervals (interval.Interval object)'''
     if isinstance(intervals, iv.AtomicInterval): 
         intervals = iv.Interval(intervals)
     if not isinstance(intervals, iv.Interval):
         raise TypeError("'intervals' parameter must be of type intervals.Interval")
-    return [t for t in times if t in intervals]
-
+    if not return_indices:
+        return [t for t in times if t in intervals]
+    else:
+        return [i for i, t in enumerate(times) if t in intervals]
+        
 def intervals_from_continuous(data, timestamps, fn):
     '''Get Intervals in a continous data series when a specified function of the data evaluates to true.
     Currently returns the first sample after a crossing, and the last sample before a crossing as the 
