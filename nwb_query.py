@@ -144,6 +144,10 @@ class ContinuousData():
             self.obs_intervals = TimeIntervals(bounds)
     
     def __find_obs_intervals(self, timestamps, gap_threshold_samps=1.5):
+        """Optionally build obs_intervals from any gaps in the data.
+        
+        This is currently not tested.
+        """
             import warnings
             warnings.warn("Deducing obs_interval is currently untested, may be bogus.")
             stepsize = np.mean(np.diff(timestamps, 1)) # use first derivatives to estimate the stepsize
@@ -168,6 +172,12 @@ class ContinuousData():
             
 
     def time_query(self, time_intervals):
+        """Return ContinuousData using the specified time_intervals.
+        
+        The resulting obs_intervals is the intersection of the obs_intervals of this ContinuousData and
+        the provided. time_intevals. The resulting data and timestamps are those occurring in the 
+        resulting obs_intervals.
+        """
         if not(isinstance(time_intervals, TimeIntervals)):
             raise TypeError("'time_intervals' must be of type nwb_query.TimeIntervals")
         
@@ -192,6 +202,46 @@ class ContinuousData():
         return ContinuousData(data=np.concatenate(result_data),
                               timestamps=np.concatenate(result_timestamps),
                               obs_intervals=result_obs_intervals)
+    
+    
+    def filter_intervals(self, func, data_cols=False):
+        """Return TimeIntervals where the ContinuousData fulfills a boolean lambda function ('func').
+        
+        By default, 'func' should accept all columns of ContinuousData.data as input.
+        Otherwise, provide a list of the column indices that should be used.
+        """
+        if self.data.shape[0] == 0:
+            return TimeIntervals(iv.empty())
+        
+        # apply the function to the correct columns of the data
+        if data_cols:
+            assert max(data_cols) < self.data.shape[1]
+            func_of_data_bool = func(self.data[:, data_cols])
+        else:
+            func_of_data_bool = func(self.data)
+        
+        # convert True/False to 1/0
+        assert func_of_data_bool.dtype == np.bool_
+        func_of_data = np.array([int(x) for x in func_of_data_bool])
+            
+        # Get the up/down crossing indices, i.e. the first/last elements in each interval that fulfill 'func'
+        df = np.diff(func_of_data)
+        up_crossings = np.where(df == 1)[0] + 1
+        down_crossings = np.where(df == -1)[0]
+
+        # if data begins while function is true, include this as an up-crossing
+        if func_of_data[0]:
+            up_crossings = np.insert(up_crossings, 0, 0)
+
+        # if data ends while function is true, include this as a down-crossing    
+        if func_of_data[-1]:
+            down_crossings = np.append(down_crossings, func_of_data.shape[0]-1)
+        
+        # Create the true time intervals (closed intervals)
+        up_times = self.timestamps[up_crossings]
+        down_times = self.timestamps[down_crossings]
+        interval_pairs = list(zip(up_times, down_times))
+        return TimeIntervals(np.array(interval_pairs))
 
         
 
