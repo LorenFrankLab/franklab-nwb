@@ -63,13 +63,13 @@ class PointProcess():
     def __init__(self, event_times, obs_intervals, marks=None):
         if not(isinstance(obs_intervals, TimeIntervals)):
             raise TypeError("'obs_intervals' must be of type nwb_query.TimeIntervals")
-        if not isinstance(event_times, np.array)
+        if not isinstance(event_times, np.ndarray):
             raise TypeError("'event_times' must be a numpy.array")
-        if not(event_times.ndim==1)
+        if not(event_times.ndim==1):
             raise ValueError("'event_times' must be a vector (1-dimensional array).")
-        if not isinstance(marks, np.array)
+        if marks and not isinstance(marks, np.ndarray):
             raise TypeError("'marks' must be a numpy.array")
-        if not(marks.shape[0]==self.event_times.shape[0])
+        if marks and not(marks.shape[0]==self.event_times.shape[0]):
             raise ValueError("'marks' must have same # of entries (rows) as 'event_times'.")        
         self.event_times = event_times
         self.obs_intervals = obs_intervals
@@ -81,7 +81,7 @@ class PointProcess():
             raise TypeError("'time_intervals' must be of type nwb_query.TimeIntervals")
         # constrain time query to areas where data has support
         result_obs_intervals = self.obs_intervals & time_intervals
-        result_event_times = [t for t in self.event_times if t in time_intervals]
+        result_event_times = np.array([t for t in self.event_times if t in time_intervals])
         return PointProcess(event_times=result_event_times,
                             obs_intervals=result_obs_intervals)
         
@@ -103,30 +103,33 @@ class PointProcess():
         if continuous_data.data.ndim > 1 and not (interpolation == 'nearest' or interpolation == 'linear'):
             raise NotImplementedError("For data > 1-D, only 'nearest' and 'linear' interpolation are currently suppported")
 
+        # Make an interpolation function using the continuous data and timestamps, which we will use to
+        # evaluate the ContinuousData at the event_times of this PointProcess
         interpolator = interp1d(x=continuous_data.timestamps, 
                                 y=continuous_data.data, 
                                 kind=interpolation, 
                                 axis=0)
+        
         mark_shape = continuous_data.data.shape[1:] # 1 row per event, but mark data can be multi-d
         
-        if merge_obs_intervals=False:
-
+        if merge_obs_intervals:
+            # timequery on pp: intersects obs_intervals and discards event_times outside overlapping region
+            result_pp = self.time_query(continuous_data.obs_intervals)
+            # don't need to worry about events outside of the continuous data, b/c we have already filtered event_times
+            result_pp.marks = interpolator(result_pp.event_times)
+            return result_pp
+        else:
             result_marks = []
             for event_t in self.event_times:
                 if event_t in continuous_data.obs_intervals:
                     result_marks.append(interpolator(event_t), 'extrapolate') # extrapolate when within obs_intervals but outside last sample?
                 else:
-                    result_marks.append(np.full(mark_shape, None))                                    
+                    result_marks.append(np.full(mark_shape, None))  # set mark to None if the event occurs outside the continuous data                             
             return PointProcess(self.event_times, self.obs_intervals,
                                      marks=np.concatenate(result_marks,axis=0))
             
-        else:
-            # timequery on pp: intersects obs_intervals and discards events outside overlapping region
-            result_pp = self.time_query(continuous_data.obs_intervals)
-            # don't need to worry about extrapolation/'fill_value' b/c we have already filtered event_times
-            result_pp.marks = interpolator(result_pp.event_times)
-            return result_pp
-                                    
+       
+
 class ContinuousData():
     
     def __init__(self, data, timestamps, obs_intervals=None, find_gaps=False):
@@ -189,5 +192,7 @@ class ContinuousData():
         return ContinuousData(data=np.concatenate(result_data),
                               timestamps=np.concatenate(result_timestamps),
                               obs_intervals=result_obs_intervals)
+
+        
 
         
