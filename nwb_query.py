@@ -11,24 +11,32 @@ class TimeIntervals():
     To replace with a different backend, change the methods accordingly.
     """
     
-    def __init__(self, bounds):
+    def __init__(self, bounds=None):
         self.intervals = self.__make_intervals(bounds)
         
     def __make_intervals(self, bounds):
         '''Create an interval.Interval from start/end times'''
+        if bounds is None:
+            return iv.empty()
         if isinstance(bounds, iv.Interval):
             return bounds
+        if isinstance(bounds, iv.AtomicInterval):
+            return iv.Interval(bounds) # converts AtomicInterval to Interval
         elif (isinstance(bounds, np.ndarray) and bounds.ndim == 2 and bounds.shape[1] == 2):
             intervals = iv.empty()
             for ivl in bounds:
                 intervals = intervals | iv.closed(*ivl)
             return intervals
         else:
-            raise TypeError("'bounds' must be an interval.Interval object, or an m x 2 numpy array")
+            raise TypeError("'bounds' must be an intervals.Interval, intervals.AtomicInterval, or an m x 2 numpy array")
         
     def to_array(self):
         '''Create m x 2 numpy array from the set of intervals in an TimeIntervals object'''
         return np.array([[atomic_ivl.lower, atomic_ivl.upper] for atomic_ivl in self.intervals])
+    
+    def durations(self):
+        '''Return duration of each obs_interval'''
+        return np.diff(self.to_array(), axis=1)
         
     def __and__(self, time_intervals):
         '''Return the intersection of two TimeIntervals'''
@@ -52,6 +60,8 @@ class TimeIntervals():
     
     def __len__(self):
         """Return number of non-overlapping intervals (i.e. start/stop) in this TimeIntervals."""
+        if self.intervals.is_empty(): # iv.empty() has len 1; it contains a special empty interval (I.inf, -I.inf)
+            return 0
         return len(self.intervals)
 
 
@@ -148,27 +158,27 @@ class ContinuousData():
         
         This is currently not tested.
         """
-            import warnings
-            warnings.warn("Deducing obs_interval is currently untested, may be bogus.")
-            stepsize = np.mean(np.diff(timestamps, 1)) # use first derivatives to estimate the stepsize
-            diffs = np.diff(timestamps, 2)  # use second derivative to identify gaps
-            epsilon = gap_threshold_samps * stepsize  # only count if the gap is big with respect to the stepsize
-            ivl_end_indices = np.where(diffs > epsilon)[0] + 1  
-            if ivl_end_indices.size == 0:  # no gaps in observation
-                return TimeIntervals(np.array([[timestamps[0], timestamps[-1]]]))
-            else:
-                # append the last valid index of the array to the end indices
-                np.append(ivl_end_indices, ivl_end_indices.size-1) 
-                # build the obs_intervals
-                bounds = []  
-                for i, end_idx in enumerate(ivl_end_indices):
-                    if i == 0:   # handle the first interval
-                        bounds.append([self.timestamps[0], self.timestamps[end_idx]])
-                    else:
-                        previous_end_idx = ivl_end_indices[i-1]
-                        new_start_idx = previous_end_idx + 1
-                        bounds.append([self.timestamps[new_start_idx], self.timestamps[end_idx]])
-                return TimeIntervals(np.array(bounds))
+        import warnings
+        warnings.warn("Deducing obs_interval is currently untested, may be bogus.")
+        stepsize = np.mean(np.diff(timestamps, 1)) # use first derivatives to estimate the stepsize
+        diffs = np.diff(timestamps, 2)  # use second derivative to identify gaps
+        epsilon = gap_threshold_samps * stepsize  # only count if the gap is big with respect to the stepsize
+        ivl_end_indices = np.where(diffs > epsilon)[0] + 1  
+        if ivl_end_indices.size == 0:  # no gaps in observation
+            return TimeIntervals(np.array([[timestamps[0], timestamps[-1]]]))
+        else:
+            # append the last valid index of the array to the end indices
+            np.append(ivl_end_indices, ivl_end_indices.size-1) 
+            # build the obs_intervals
+            bounds = []  
+            for i, end_idx in enumerate(ivl_end_indices):
+                if i == 0:   # handle the first interval
+                    bounds.append([self.timestamps[0], self.timestamps[end_idx]])
+                else:
+                    previous_end_idx = ivl_end_indices[i-1]
+                    new_start_idx = previous_end_idx + 1
+                    bounds.append([self.timestamps[new_start_idx], self.timestamps[end_idx]])
+            return TimeIntervals(np.array(bounds))
             
 
     def time_query(self, time_intervals):
@@ -211,21 +221,18 @@ class ContinuousData():
         Otherwise, provide a list of the column indices that should be used.
         """
         if self.data.shape[0] == 0:
-            return TimeIntervals(iv.empty())
+            return TimeIntervals()
         
         # apply the function to the correct columns of the data
         if data_cols:
             assert max(data_cols) < self.data.shape[1]
-            func_of_data_bool = func(self.data[:, data_cols])
+            func_of_data = func(self.data[:, data_cols])
         else:
-            func_of_data_bool = func(self.data)
+            func_of_data = func(self.data)
         
-        # convert True/False to 1/0
-        assert func_of_data_bool.dtype == np.bool_
-        func_of_data = np.array([int(x) for x in func_of_data_bool])
-            
         # Get the up/down crossing indices, i.e. the first/last elements in each interval that fulfill 'func'
-        df = np.diff(func_of_data)
+        assert func_of_data.dtype == 'bool'
+        df = np.diff(func_of_data.astype(np.int8))
         up_crossings = np.where(df == 1)[0] + 1
         down_crossings = np.where(df == -1)[0]
 
@@ -237,11 +244,11 @@ class ContinuousData():
         if func_of_data[-1]:
             down_crossings = np.append(down_crossings, func_of_data.shape[0]-1)
         
-        # Create the true time intervals (closed intervals)
+        # Create the time intervals
         up_times = self.timestamps[up_crossings]
         down_times = self.timestamps[down_crossings]
-        interval_pairs = list(zip(up_times, down_times))
-        return TimeIntervals(np.array(interval_pairs))
+        interval_bounds = np.array((up_times, down_times)).T
+        return TimeIntervals(interval_bounds)
 
         
 
