@@ -3,6 +3,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import intervals as iv
 
+
 class TimeIntervals():
     """
     Represent a list of non-overlapping time intervals.
@@ -54,9 +55,9 @@ class TimeIntervals():
         '''Return the union of two TimeIntervals'''
         return self | time_intervals
 
-    def __contains__(self, v):
-        """Check whether element v is in a TimeIntervals. Supports the 'v in TimeIntervals' pattern."""
-        return v in self.intervals
+    def __contains__(self, t):
+        """Check whether time t is in TimeIntervals. Supports the 'v in TimeIntervals' pattern."""
+        return t in self.intervals
     
     def __len__(self):
         """Return number of non-overlapping intervals (i.e. start/stop) in this TimeIntervals."""
@@ -85,15 +86,22 @@ class PointProcess():
         self.obs_intervals = obs_intervals
         self.marks = marks
     
-    def time_query(self, time_intervals):
-        '''Return PointProcess with data available during requested time_interval'''
-        if not(isinstance(time_intervals, TimeIntervals)):
-            raise TypeError("'time_intervals' must be of type nwb_query.TimeIntervals")
-        # constrain time query to areas where data has support
-        result_obs_intervals = self.obs_intervals & time_intervals
-        result_event_times = np.array([t for t in self.event_times if t in time_intervals])
+    def time_query(self, query_intervals):
+        '''Return PointProcess with data available during requested time_interval.'''
+        
+        # Find the resulting obs_intervals where the data have support (i.e. intersect with the selection intervals)
+        if isinstance(query_intervals, TimeSelection):
+            result_obs_intervals = self.obs_intervals & query_intervals.select_intervals
+        elif isinstance(query_intervals, TimeIntervals):
+            result_obs_intervals = self.obs_intervals & query_intervals
+        else:
+            raise TypeError("'query_intervals' must be of type nwb_query.TimeSelection or nwb_query.TimeIntervals")
+            
+        # Collect the valid event_times in the query
+        result_event_times = np.array([t for t in self.event_times if t in query_intervals])
         return PointProcess(event_times=result_event_times,
                             obs_intervals=result_obs_intervals)
+        
         
     def mark_with_ContinuousData(self, continuous_data, merge_obs_intervals=True, interpolation='linear'):
         """
@@ -181,18 +189,20 @@ class ContinuousData():
             return TimeIntervals(np.array(bounds))
             
 
-    def time_query(self, time_intervals):
+    def time_query(self, query_intervals):
         """Return ContinuousData using the specified time_intervals.
         
         The resulting obs_intervals is the intersection of the obs_intervals of this ContinuousData and
         the provided. time_intevals. The resulting data and timestamps are those occurring in the 
         resulting obs_intervals.
         """
-        if not(isinstance(time_intervals, TimeIntervals)):
-            raise TypeError("'time_intervals' must be of type nwb_query.TimeIntervals")
-        
-        # constrain time query to areas where data has support
-        result_obs_intervals = self.obs_intervals & time_intervals # iv.Intervals provides 'and'
+        # Constrain the resulting obs_intervals to where the data have support (i.e. intersect with selection intervals)
+        if isinstance(query_intervals, TimeSelection):
+            result_obs_intervals = self.obs_intervals & query_intervals.select_intervals
+        elif isinstance(query_intervals, TimeIntervals):
+            result_obs_intervals = self.obs_intervals & query_intervals
+        else:
+            raise TypeError("'query_intervals' must be of type nwb_query.TimeSelection or nwb_query.TimeIntervals")
         
         # Get index into data and timestamps of interval starts/ends
         result_bounds = result_obs_intervals.to_array()
@@ -215,14 +225,15 @@ class ContinuousData():
     
     
     def filter_intervals(self, func, data_cols=False):
-        """Return TimeIntervals where the ContinuousData fulfills a boolean lambda function ('func').
+        """Return a TimeSelection where the ContinuousData fulfills a boolean lambda function ('func').
         
         By default, 'func' should accept all columns of ContinuousData.data as input.
         Otherwise, provide a list of the column indices that should be used.
         """
         if self.data.shape[0] == 0:
-            return TimeIntervals()
-        
+            return TimeSelection(select_intervals=TimeIntervals(),
+                                 obs_intervals=self.obs_intervals)
+                                 
         # apply the function to the correct columns of the data
         if data_cols:
             assert max(data_cols) < self.data.shape[1]
@@ -248,8 +259,80 @@ class ContinuousData():
         up_times = self.timestamps[up_crossings]
         down_times = self.timestamps[down_crossings]
         interval_bounds = np.array((up_times, down_times)).T
-        return TimeIntervals(interval_bounds)
-
+        filtered_intervals = TimeIntervals(interval_bounds)
         
+        # Return a TimeSelection instance, with the same obs_intervals as this ContinuousData instance
+        return TimeSelection(select_intervals=filtered_intervals,
+                             obs_intervals=self.obs_intervals)
+        
+
+    
+
+class TimeSelection():
+    """Represent events occurring during a period of observation.
+    
+    
+    A TimeSelection object can be used for querying additional datasets, while matinating the 
+    correct observation intervals from the initial dataset. For example, selecting time intervals 
+    where an animal was running faster than a threshold speed, and using the resulting 
+    TimeSelection object to query spiking data for a clustered unit. The resulting 
+    observation intervals should be the intersection of the speed TimeSelection and the 
+    spiking PointProcess obs_intervals.  
+    """
+    
+    def __init__(self, select_intervals, obs_intervals):
+        if not isinstance(select_intervals, TimeIntervals):
+            raise TypeError("'select_intervals' must be a query.TimeIntervals instance")
+        if not isinstance(obs_intervals, TimeIntervals):
+            raise TypeError("'obs_intervals' must be a query.TimeIntervals instance")
+        if not np.all([s_ivl in obs_intervals for s_ivl in select_intervals.intervals]):
+            raise ValueError("'select_intervals' must be fully contained in 'obs_intervals'.")
+        
+        self.select_intervals = select_intervals
+        self.obs_intervals = obs_intervals
+    
+    
+    def __contains__(self, t):
+        """Check whether time t is in the TimeSelection's selection intervals."""
+        return t in self.select_intervals
+    
+    def supports(self, t):
+        """Check whether time t is in the TimeSelection's observation intervals.
+        (i.e. Returns true if there is support for data at this time, regardless of
+        whether t is in the selection interval.)
+        """
+        return t in self.obs_intervals
+    
+    def durations(self):
+        """Durations of the selection intervals."""
+        return self.select_intervals.durations()
+    
+    def obs_durations(self):
+        """Durations of the observation intervals."""
+        return self.obs_intervals.durations()
+    
+    def __and__(self, other):
+        '''Return the intersection of two TimeSelections'''
+        if not isinstance(other, TimeSelection):
+            raise TypeError("'other' must be a nwb_query.TimeSelection object")
+        result_select_ivl = self.select_intervals & other.select_intervals
+        result_obs_ivl = self.obs_intervals & other.obs_intervals
+        return TimeSelection(result_select_ivl, result_obs_ivl)
+
+    def intersect(self, other):
+        '''Return the intersection of two TimeSelections'''
+        return self & other
+    
+    def __or__(self, other):
+        '''Return the union of two TimeSelections'''
+        if not isinstance(other, TimeSelection):
+            raise TypeError("'other' must be a nwb_query.TimeSelection object")
+        result_select_ivl = self.select_intervals | other.select_intervals
+        result_obs_ivl = self.obs_intervals | other.obs_intervals
+        return TimeSelection(result_select_ivl, result_obs_ivl)
+
+    def union(self, other):
+        '''Return the union of two TimeSelections'''
+        return self | other
 
         
