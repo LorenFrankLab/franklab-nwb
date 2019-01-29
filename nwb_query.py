@@ -15,7 +15,6 @@ class TimeIntervals():
     
     def __init__(self, bounds=None):
         self.intervals = self.__make_intervals(bounds)
-        self.iter_idx = 0  # TimeIntervals as an iterator
         
     def __make_intervals(self, bounds):
         '''Create an interval.Interval from start/end times'''
@@ -68,6 +67,7 @@ class TimeIntervals():
         return len(self.intervals)
     
     def __iter__(self):
+        self.iter_idx = 0
         return self
     
     def __next__(self):
@@ -80,34 +80,33 @@ class TimeIntervals():
             return np.array([[ivl.lower, ivl.upper]])
 
     
-class Data(ABC):
-    """Abstract base class for representing data observed over some observation intervals.
+class TimeBasedData(ABC):
+    """Abstract base class for representing data observed over some observation intervals."""
     
-    In addition to 
-    
-    """
-    @abstractmethod
-    def __init__(self, obs_intervals):
-        if not(isinstance(obs_intervals, TimeIntervals)):
-            raise TypeError("'obs_intervals' must be of type nwb_query.TimeIntervals")
-        self.obs_intervals = obs_intervals
-        
-    # Abstractmethod decorator forces all Data subclasses to implement time_query
+    # Abstract method. All subclasses must implement a time_query method.
     @abstractmethod     
     def time_query(self, query):
         raise NotImplementedError("Subclasses of abstract class Data must implement 'time_query' method.")
-  
         
+    # All subclasses will inherit an obs_intervals property. May be overridden.
+    @property
+    def obs_intervals(self):
+        return self._obs_intervals
     
-class PointData(Data):
+    @obs_intervals.setter
+    def obs_intervals(self, new_obs_intervals):
+        if not(isinstance(new_obs_intervals, TimeIntervals)):
+            raise TypeError("'obs_intervals' must be of type nwb_query.TimeIntervals")
+        self._obs_intervals = new_obs_intervals
+        
+        
+        
+class PointData(TimeBasedData):
     '''
     Represent a point process, a list of discrete event times occurring during defined intervals,
     optionally with mark data associated with each event.
     '''    
     def __init__(self, event_times, obs_intervals, marks=None):
-        
-        super(PointData, self).__init__(obs_intervals)
-        
         if not isinstance(event_times, np.ndarray):
             raise TypeError("'event_times' must be a numpy.array")
         if not(event_times.ndim==1):
@@ -115,9 +114,9 @@ class PointData(Data):
         if marks and not isinstance(marks, np.ndarray):
             raise TypeError("'marks' must be a numpy.array")
         if marks and not(marks.shape[0]==self.event_times.shape[0]):
-            raise ValueError("'marks' must have same # of entries (rows) as 'event_times'.")        
+            raise ValueError("'marks' must have same # of entries (rows) as 'event_times'.")   
         self.event_times = event_times
-        self.obs_intervals = obs_intervals
+        self.obs_intervals = obs_intervals  # this uses the inherited setter
         self.marks = marks
     
     def time_query(self, query):
@@ -181,7 +180,7 @@ class PointData(Data):
             return PointData(self.event_times, self.obs_intervals,
                                      marks=np.concatenate(result_marks,axis=0))
 
-class ContinuousData(Data):
+class ContinuousData(TimeBasedData):
     
     def __init__(self, data, timestamps, obs_intervals=None, find_gaps=False):
         if not obs_intervals:
@@ -190,7 +189,7 @@ class ContinuousData(Data):
             else:
                 timestamps_range = np.array([[timestamps[0], timestamps[-1]]])
                 obs_intervals = TimeIntervals(timestamps_range)
-        super(ContinuousData, self).__init__(obs_intervals)
+        self.obs_intervals = obs_intervals # uses the interited setter
         self.data = data
         self.timestamps = timestamps
     
@@ -301,7 +300,7 @@ class ContinuousData(Data):
 
     
 
-class EventData(Data):
+class EventData(TimeBasedData):
     """Represent events occurring during a period of observation.
     
     
@@ -312,13 +311,12 @@ class EventData(Data):
     """
     
     def __init__(self, event_intervals, obs_intervals):
-        super(EventData, self).__init__(obs_intervals)
         if not isinstance(event_intervals, TimeIntervals):
             raise TypeError("'event_intervals' must be a query.TimeIntervals instance")
         if not np.all([event_ivl in obs_intervals for event_ivl in event_intervals.intervals]):
             raise ValueError("'event_intervals' must be fully contained in 'obs_intervals'.")
         self.event_intervals = event_intervals
-        self.obs_intervals = obs_intervals
+        self.obs_intervals = obs_intervals # uses the inherited setter
     
     
     def time_query(self, query):
