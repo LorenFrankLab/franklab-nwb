@@ -20,17 +20,18 @@ class TimeIntervals():
         '''Create an interval.Interval from start/end times'''
         if bounds is None:
             return iv.empty()
-        if isinstance(bounds, iv.Interval):
-            return bounds
-        if isinstance(bounds, iv.AtomicInterval):
-            return iv.Interval(bounds) # converts AtomicInterval to Interval
         elif (isinstance(bounds, np.ndarray) and bounds.ndim == 2 and bounds.shape[1] == 2):
+            # input is a 2D (m x 2) numpy array
             intervals = iv.empty()
             for ivl in bounds:
                 intervals = intervals | iv.closed(*ivl)
             return intervals
+        elif (isinstance(bounds, np.ndarray) and bounds.ndim == 1 and bounds.size == 2):
+            # input is a 1D (1 x 2) numpy vector
+            return iv.closed(*bounds)
         else:
-            raise TypeError("'bounds' must be an intervals.Interval, intervals.AtomicInterval, or an m x 2 numpy array")
+            raise TypeError("'bounds' must be an m x 2 numpy array (where m is the number of obs intervals) or " +
+                            "a 1x2 numpy vector (for a single obs interval)")
         
     def to_array(self):
         '''Create m x 2 numpy array from the set of intervals in an TimeIntervals object'''
@@ -42,7 +43,8 @@ class TimeIntervals():
         
     def __and__(self, time_intervals):
         '''Return the intersection of two TimeIntervals'''
-        return TimeIntervals(self.intervals & time_intervals.intervals)
+        intersection = self.intervals & time_intervals.intervals  # intersect using python-intervals
+        return TimeIntervals(np.array([[ivl.lower, ivl.upper] for ivl in intersection]))
 
     def intersect(self, time_intervals):
         '''Return the intersection of two TimeIntervals'''
@@ -50,7 +52,8 @@ class TimeIntervals():
     
     def __or__(self, time_intervals):
         '''Return the union of two TimeIntervals'''
-        return TimeIntervals(self.intervals | time_intervals.intervals)
+        union = self.intervals | time_intervals.intervals  # union using python-intervals
+        return TimeIntervals(np.array([[ivl.lower, ivl.upper] for ivl in union]))
 
     def union(self, time_intervals):
         '''Return the union of two TimeIntervals'''
@@ -77,7 +80,7 @@ class TimeIntervals():
         else:
             ivl = self.intervals[self.iter_idx]
             self.iter_idx += 1
-            return np.array([[ivl.lower, ivl.upper]])
+            return np.array([ivl.lower, ivl.upper])
 
     
 class TimeBasedData(ABC):
