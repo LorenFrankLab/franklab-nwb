@@ -7,7 +7,7 @@ import intervals as iv
 
 class TimeIntervals():
     """
-    Represent a list of non-overlapping time intervals.
+    Class for representing a list of non-overlapping time intervals.
     
     Currently uses python-intervals as a backend, abstracting this from other classes that use intervals. 
     To replace with a different backend, change the methods accordingly.
@@ -67,9 +67,6 @@ class TimeIntervals():
         return len(self.intervals)
 
     
-
-    
-    
 class Data(ABC):
     """Abstract base class for representing data observed over some observation intervals.
     
@@ -82,13 +79,13 @@ class Data(ABC):
             raise TypeError("'obs_intervals' must be of type nwb_query.TimeIntervals")
         self.obs_intervals = obs_intervals
         
-    # Decorate as an abstractmethod to force all Data subclasses to implement time_query
-#     @abstractmethod     
+    # Abstractmethod decorator forces all Data subclasses to implement time_query
+    @abstractmethod     
     def time_query(self, query):
         raise NotImplementedError("Subclasses of abstract class Data must implement 'time_query' method.")
-
+  
         
-        
+    
 class PointData(Data):
     '''
     Represent a point process, a list of discrete event times occurring during defined intervals,
@@ -110,21 +107,22 @@ class PointData(Data):
         self.obs_intervals = obs_intervals
         self.marks = marks
     
-    def time_query(self, query_intervals):
-        '''Return PointData with data available during requested time_interval.'''
+    def time_query(self, query):
+        '''Return PointData with data available during requested query.'''
         
         # Find the resulting obs_intervals where the data have support (i.e. intersect with the selection intervals)
-        if isinstance(query_intervals, EventData):
-            result_obs_intervals = self.obs_intervals & query_intervals.select_intervals
-        elif isinstance(query_intervals, TimeIntervals):
-            result_obs_intervals = self.obs_intervals & query_intervals
+        if isinstance(query, EventData):
+            result_obs_intervals = self.obs_intervals & query.event_intervals
+        elif isinstance(query, TimeIntervals):
+            result_obs_intervals = self.obs_intervals & query
         else:
-            raise TypeError("'query_intervals' must be of type nwb_query.EventData or nwb_query.TimeIntervals")
+            raise TypeError("PointData.query currently only supports queries of " +
+                            "type nwb_query.EventData or nwb_query.TimeIntervals")
             
         # Collect the valid event_times in the query
-        result_event_times = np.array([t for t in self.event_times if t in query_intervals])
+        result_event_times = np.array([t for t in self.event_times if t in query])
         return PointData(event_times=result_event_times,
-                            obs_intervals=result_obs_intervals)
+                         obs_intervals=result_obs_intervals)
         
         
     def mark_with_ContinuousData(self, continuous_data, merge_obs_intervals=True, interpolation='linear'):
@@ -211,20 +209,20 @@ class ContinuousData(Data):
             return TimeIntervals(np.array(bounds))
             
 
-    def time_query(self, query_intervals):
-        """Return ContinuousData using the specified time_intervals.
+    def time_query(self, query):
+        """Return ContinuousData in the specified time_intervals.
         
         The resulting obs_intervals is the intersection of the obs_intervals of this ContinuousData and
         the provided. time_intevals. The resulting data and timestamps are those occurring in the 
         resulting obs_intervals.
         """
         # Constrain the resulting obs_intervals to where the data have support (i.e. intersect with selection intervals)
-        if isinstance(query_intervals, EventData):
-            result_obs_intervals = self.obs_intervals & query_intervals.select_intervals
-        elif isinstance(query_intervals, TimeIntervals):
-            result_obs_intervals = self.obs_intervals & query_intervals
+        if isinstance(query, EventData):
+            result_obs_intervals = self.obs_intervals & query.event_intervals
+        elif isinstance(query, TimeIntervals):
+            result_obs_intervals = self.obs_intervals & query
         else:
-            raise TypeError("'query_intervals' must be of type nwb_query.EventData or nwb_query.TimeIntervals")
+            raise TypeError("'query' must be of type nwb_query.EventData or nwb_query.TimeIntervals")
         
         # Get index into data and timestamps of interval starts/ends
         result_bounds = result_obs_intervals.to_array()
@@ -253,7 +251,7 @@ class ContinuousData(Data):
         Otherwise, provide a list of the column indices that should be used.
         """
         if self.data.shape[0] == 0:
-            return EventData(select_intervals=TimeIntervals(),
+            return EventData(event_intervals=TimeIntervals(),
                                  obs_intervals=self.obs_intervals)
                                  
         # apply the function to the correct columns of the data
@@ -284,8 +282,8 @@ class ContinuousData(Data):
         filtered_intervals = TimeIntervals(interval_bounds)
         
         # Return a EventData instance, with the same obs_intervals as this ContinuousData instance
-        return EventData(select_intervals=filtered_intervals,
-                             obs_intervals=self.obs_intervals)
+        return EventData(event_intervals=filtered_intervals,
+                         obs_intervals=self.obs_intervals)
         
 
     
@@ -297,62 +295,73 @@ class EventData(Data):
     A EventData object can be used for querying additional datasets, while matinating the 
     correct observation intervals from the initial dataset. For example, selecting time intervals 
     where an animal was running faster than a threshold speed, and using the resulting 
-    EventData object to query spiking data for a clustered unit. The resulting 
-    observation intervals should be the intersection of the speed EventData and the 
-    spiking PointData obs_intervals.  
+    EventData object to query spiking data for a clustered unit. 
     """
     
-    def __init__(self, select_intervals, obs_intervals):
+    def __init__(self, event_intervals, obs_intervals):
         super(EventData, self).__init__(obs_intervals)
-        if not isinstance(select_intervals, TimeIntervals):
-            raise TypeError("'select_intervals' must be a query.TimeIntervals instance")
-        if not np.all([s_ivl in obs_intervals for s_ivl in select_intervals.intervals]):
-            raise ValueError("'select_intervals' must be fully contained in 'obs_intervals'.")
-        self.select_intervals = select_intervals
+        if not isinstance(event_intervals, TimeIntervals):
+            raise TypeError("'event_intervals' must be a query.TimeIntervals instance")
+        if not np.all([event_ivl in obs_intervals for event_ivl in event_intervals.intervals]):
+            raise ValueError("'event_intervals' must be fully contained in 'obs_intervals'.")
+        self.event_intervals = event_intervals
         self.obs_intervals = obs_intervals
     
     
+    def time_query(self, query):
+        '''Return EventData with events and observation intervals available during the requested query.'''
+        
+        # Find the resulting event_intervals and obs_intervals
+        if isinstance(query, EventData):
+            result_event_intervals = self.event_intervals & query.event_intervals
+            result_obs_intervals = self.obs_intervals & query.event_intervals   # confirm this
+        elif isinstance(query, TimeIntervals):
+            result_event_intervals = self.event_intervals & query
+            result_obs_intervals = self.obs_intervals & query
+        else:
+            raise TypeError("EventData.query currently only supports queries of " +
+                            "type nwb_query.EventData or nwb_query.TimeIntervals")
+        return EventData(event_intervals=result_event_intervals,
+                         obs_intervals=result_obs_intervals)
+        
     def __contains__(self, t):
-        """Check whether time t is in the EventData's selection intervals."""
-        return t in self.select_intervals
+        """Check whether time t is in the event intervals."""
+        return t in self.event_intervals
     
-    def supports(self, t):
-        """Check whether time t is in the EventData's observation intervals.
-        (i.e. Returns true if there is support for data at this time, regardless of
-        whether t is in the selection interval.)
-        """
+    def obs_contain(self, t):
+        """Check whether time t is in the EventData's observation intervals."""
         return t in self.obs_intervals
     
     def durations(self):
-        """Durations of the selection intervals."""
-        return self.select_intervals.durations()
+        """Durations of the event intervals."""
+        return self.event_intervals.durations()
     
     def obs_durations(self):
         """Durations of the observation intervals."""
         return self.obs_intervals.durations()
     
     def __and__(self, other):
-        '''Return the intersection of two EventDatas'''
+        '''Return the intersection of two EventData objects'''
         if not isinstance(other, EventData):
             raise TypeError("'other' must be a nwb_query.EventData object")
-        result_select_ivl = self.select_intervals & other.select_intervals
+        result_event_ivl = self.event_intervals & other.event_intervals
         result_obs_ivl = self.obs_intervals & other.obs_intervals
-        return EventData(result_select_ivl, result_obs_ivl)
+        return EventData(result_event_ivl, result_obs_ivl)
 
     def intersect(self, other):
-        '''Return the intersection of two EventDatas'''
+        '''Return the intersection of two EventData objects'''
         return self & other
     
     def __or__(self, other):
-        '''Return the union of two EventDatas'''
+        '''Return the union of two EventData objects'''
         if not isinstance(other, EventData):
             raise TypeError("'other' must be a nwb_query.EventData object")
-        result_select_ivl = self.select_intervals | other.select_intervals
+        result_event_ivl = self.event_intervals | other.event_intervals
         result_obs_ivl = self.obs_intervals | other.obs_intervals
-        return EventData(result_select_ivl, result_obs_ivl)
+        return EventData(result_event_ivl, result_obs_ivl)
 
     def union(self, other):
-        '''Return the union of two EventDatas'''
+        '''Return the union of two EventData objects'''
         return self | other
 
         
