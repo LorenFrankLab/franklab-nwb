@@ -15,6 +15,7 @@ class TimeIntervals():
     
     def __init__(self, bounds=None):
         self.intervals = self.__make_intervals(bounds)
+        self.iter_idx = 0  # TimeIntervals as an iterator
         
     def __make_intervals(self, bounds):
         '''Create an interval.Interval from start/end times'''
@@ -65,6 +66,18 @@ class TimeIntervals():
         if self.intervals.is_empty(): # iv.empty() has len 1; it contains a special empty interval (I.inf, -I.inf)
             return 0
         return len(self.intervals)
+    
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        # make TimeIntervals an iterator object
+        if self.iter_idx >= self.__len__():
+            raise StopIteration
+        else:
+            ivl = self.intervals[self.iter_idx]
+            self.iter_idx += 1
+            return np.array([[ivl.lower, ivl.upper]])
 
     
 class Data(ABC):
