@@ -1,5 +1,6 @@
 import copy
 import numpy as np
+from abc import ABC, abstractmethod
 from scipy.interpolate import interp1d
 import intervals as iv
 
@@ -65,15 +66,38 @@ class TimeIntervals():
             return 0
         return len(self.intervals)
 
+    
 
-class PointProcess():
+    
+    
+class Data(ABC):
+    """Abstract base class for representing data observed over some observation intervals.
+    
+    In addition to 
+    
+    """
+    @abstractmethod
+    def __init__(self, obs_intervals):
+        if not(isinstance(obs_intervals, TimeIntervals)):
+            raise TypeError("'obs_intervals' must be of type nwb_query.TimeIntervals")
+        self.obs_intervals = obs_intervals
+        
+    # Decorate as an abstractmethod to force all Data subclasses to implement time_query
+#     @abstractmethod     
+    def time_query(self, query):
+        raise NotImplementedError("Subclasses of abstract class Data must implement 'time_query' method.")
+
+        
+        
+class PointData(Data):
     '''
     Represent a point process, a list of discrete event times occurring during defined intervals,
     optionally with mark data associated with each event.
     '''    
     def __init__(self, event_times, obs_intervals, marks=None):
-        if not(isinstance(obs_intervals, TimeIntervals)):
-            raise TypeError("'obs_intervals' must be of type nwb_query.TimeIntervals")
+        
+        super(PointData, self).__init__(obs_intervals)
+        
         if not isinstance(event_times, np.ndarray):
             raise TypeError("'event_times' must be a numpy.array")
         if not(event_times.ndim==1):
@@ -87,19 +111,19 @@ class PointProcess():
         self.marks = marks
     
     def time_query(self, query_intervals):
-        '''Return PointProcess with data available during requested time_interval.'''
+        '''Return PointData with data available during requested time_interval.'''
         
         # Find the resulting obs_intervals where the data have support (i.e. intersect with the selection intervals)
-        if isinstance(query_intervals, TimeSelection):
+        if isinstance(query_intervals, EventData):
             result_obs_intervals = self.obs_intervals & query_intervals.select_intervals
         elif isinstance(query_intervals, TimeIntervals):
             result_obs_intervals = self.obs_intervals & query_intervals
         else:
-            raise TypeError("'query_intervals' must be of type nwb_query.TimeSelection or nwb_query.TimeIntervals")
+            raise TypeError("'query_intervals' must be of type nwb_query.EventData or nwb_query.TimeIntervals")
             
         # Collect the valid event_times in the query
         result_event_times = np.array([t for t in self.event_times if t in query_intervals])
-        return PointProcess(event_times=result_event_times,
+        return PointData(event_times=result_event_times,
                             obs_intervals=result_obs_intervals)
         
         
@@ -107,7 +131,7 @@ class PointProcess():
         """
         Evaluate ContinuousData at each event_time and add result as a corresponding mark. 
         
-        If merge_obs_intervals=True, the resulting PointProcess will have obs_intervals that 
+        If merge_obs_intervals=True, the resulting PointData will have obs_intervals that 
         are the intersection of the obs_intervals of the inputs, and it may not contain all 
         of the original event_times. Otherwise, all event_times will be returned, but will be
         marked with 'None' at times when continuous_data is undefined (i.e. outside its 
@@ -122,7 +146,7 @@ class PointProcess():
             raise NotImplementedError("For data > 1-D, only 'nearest' and 'linear' interpolation are currently suppported")
 
         # Make an interpolation function using the continuous data and timestamps, which we will use to
-        # evaluate the ContinuousData at the event_times of this PointProcess
+        # evaluate the ContinuousData at the event_times of this PointData
         interpolator = interp1d(x=continuous_data.timestamps, 
                                 y=continuous_data.data, 
                                 kind=interpolation, 
@@ -143,23 +167,21 @@ class PointProcess():
                     result_marks.append(interpolator(event_t), 'extrapolate') # extrapolate when within obs_intervals but outside last sample?
                 else:
                     result_marks.append(np.full(mark_shape, None))  # set mark to None if the event occurs outside the continuous data                             
-            return PointProcess(self.event_times, self.obs_intervals,
+            return PointData(self.event_times, self.obs_intervals,
                                      marks=np.concatenate(result_marks,axis=0))
-            
-       
 
-class ContinuousData():
+class ContinuousData(Data):
     
     def __init__(self, data, timestamps, obs_intervals=None, find_gaps=False):
+        if not obs_intervals:
+            if find_gaps:
+                obs_intervals = self.__find_obs_intervals(self.timestamps)
+            else:
+                timestamps_range = np.array([[timestamps[0], timestamps[-1]]])
+                obs_intervals = TimeIntervals(timestamps_range)
+        super(ContinuousData, self).__init__(obs_intervals)
         self.data = data
         self.timestamps = timestamps
-        if obs_intervals:
-            self.obs_intervals = obs_intervals
-        elif find_gaps:
-            self.obs_intervals = self.__find_obs_intervals(self.timestamps)
-        else:
-            bounds = np.array([[timestamps[0], timestamps[-1]]]) # assume no gaps
-            self.obs_intervals = TimeIntervals(bounds)
     
     def __find_obs_intervals(self, timestamps, gap_threshold_samps=1.5):
         """Optionally build obs_intervals from any gaps in the data.
@@ -197,12 +219,12 @@ class ContinuousData():
         resulting obs_intervals.
         """
         # Constrain the resulting obs_intervals to where the data have support (i.e. intersect with selection intervals)
-        if isinstance(query_intervals, TimeSelection):
+        if isinstance(query_intervals, EventData):
             result_obs_intervals = self.obs_intervals & query_intervals.select_intervals
         elif isinstance(query_intervals, TimeIntervals):
             result_obs_intervals = self.obs_intervals & query_intervals
         else:
-            raise TypeError("'query_intervals' must be of type nwb_query.TimeSelection or nwb_query.TimeIntervals")
+            raise TypeError("'query_intervals' must be of type nwb_query.EventData or nwb_query.TimeIntervals")
         
         # Get index into data and timestamps of interval starts/ends
         result_bounds = result_obs_intervals.to_array()
@@ -225,13 +247,13 @@ class ContinuousData():
     
     
     def filter_intervals(self, func, data_cols=False):
-        """Return a TimeSelection where the ContinuousData fulfills a boolean lambda function ('func').
+        """Return a EventData where the ContinuousData fulfills a boolean lambda function ('func').
         
         By default, 'func' should accept all columns of ContinuousData.data as input.
         Otherwise, provide a list of the column indices that should be used.
         """
         if self.data.shape[0] == 0:
-            return TimeSelection(select_intervals=TimeIntervals(),
+            return EventData(select_intervals=TimeIntervals(),
                                  obs_intervals=self.obs_intervals)
                                  
         # apply the function to the correct columns of the data
@@ -261,43 +283,41 @@ class ContinuousData():
         interval_bounds = np.array((up_times, down_times)).T
         filtered_intervals = TimeIntervals(interval_bounds)
         
-        # Return a TimeSelection instance, with the same obs_intervals as this ContinuousData instance
-        return TimeSelection(select_intervals=filtered_intervals,
+        # Return a EventData instance, with the same obs_intervals as this ContinuousData instance
+        return EventData(select_intervals=filtered_intervals,
                              obs_intervals=self.obs_intervals)
         
 
     
 
-class TimeSelection():
+class EventData(Data):
     """Represent events occurring during a period of observation.
     
     
-    A TimeSelection object can be used for querying additional datasets, while matinating the 
+    A EventData object can be used for querying additional datasets, while matinating the 
     correct observation intervals from the initial dataset. For example, selecting time intervals 
     where an animal was running faster than a threshold speed, and using the resulting 
-    TimeSelection object to query spiking data for a clustered unit. The resulting 
-    observation intervals should be the intersection of the speed TimeSelection and the 
-    spiking PointProcess obs_intervals.  
+    EventData object to query spiking data for a clustered unit. The resulting 
+    observation intervals should be the intersection of the speed EventData and the 
+    spiking PointData obs_intervals.  
     """
     
     def __init__(self, select_intervals, obs_intervals):
+        super(EventData, self).__init__(obs_intervals)
         if not isinstance(select_intervals, TimeIntervals):
             raise TypeError("'select_intervals' must be a query.TimeIntervals instance")
-        if not isinstance(obs_intervals, TimeIntervals):
-            raise TypeError("'obs_intervals' must be a query.TimeIntervals instance")
         if not np.all([s_ivl in obs_intervals for s_ivl in select_intervals.intervals]):
             raise ValueError("'select_intervals' must be fully contained in 'obs_intervals'.")
-        
         self.select_intervals = select_intervals
         self.obs_intervals = obs_intervals
     
     
     def __contains__(self, t):
-        """Check whether time t is in the TimeSelection's selection intervals."""
+        """Check whether time t is in the EventData's selection intervals."""
         return t in self.select_intervals
     
     def supports(self, t):
-        """Check whether time t is in the TimeSelection's observation intervals.
+        """Check whether time t is in the EventData's observation intervals.
         (i.e. Returns true if there is support for data at this time, regardless of
         whether t is in the selection interval.)
         """
@@ -312,27 +332,27 @@ class TimeSelection():
         return self.obs_intervals.durations()
     
     def __and__(self, other):
-        '''Return the intersection of two TimeSelections'''
-        if not isinstance(other, TimeSelection):
-            raise TypeError("'other' must be a nwb_query.TimeSelection object")
+        '''Return the intersection of two EventDatas'''
+        if not isinstance(other, EventData):
+            raise TypeError("'other' must be a nwb_query.EventData object")
         result_select_ivl = self.select_intervals & other.select_intervals
         result_obs_ivl = self.obs_intervals & other.obs_intervals
-        return TimeSelection(result_select_ivl, result_obs_ivl)
+        return EventData(result_select_ivl, result_obs_ivl)
 
     def intersect(self, other):
-        '''Return the intersection of two TimeSelections'''
+        '''Return the intersection of two EventDatas'''
         return self & other
     
     def __or__(self, other):
-        '''Return the union of two TimeSelections'''
-        if not isinstance(other, TimeSelection):
-            raise TypeError("'other' must be a nwb_query.TimeSelection object")
+        '''Return the union of two EventDatas'''
+        if not isinstance(other, EventData):
+            raise TypeError("'other' must be a nwb_query.EventData object")
         result_select_ivl = self.select_intervals | other.select_intervals
         result_obs_ivl = self.obs_intervals | other.obs_intervals
-        return TimeSelection(result_select_ivl, result_obs_ivl)
+        return EventData(result_select_ivl, result_obs_ivl)
 
     def union(self, other):
-        '''Return the union of two TimeSelections'''
+        '''Return the union of two EventDatas'''
         return self | other
 
         
