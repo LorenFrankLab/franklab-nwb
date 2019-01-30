@@ -5,6 +5,13 @@ from abc import ABC, abstractmethod
 from scipy.interpolate import interp1d
 import intervals as iv  # backend for TimeIntervals
 
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import matplotlib.ticker as mticker
+from math import floor
+
+
+
 
 class TimeIntervals():
     """
@@ -82,7 +89,12 @@ class TimeIntervals():
             ivl = self.intervals[self.iter_idx]
             self.iter_idx += 1
             return np.array([ivl.lower, ivl.upper])
-
+    
+    def __getitem__(self, idx):
+        # allow indexing of sub-intervals, returning a new TimeIntervals
+        if idx >= len(self.intervals):
+            raise IndexError("TimeIntervals index out of range.")
+        return TimeIntervals(self.to_array()[idx])
     
 class TimeBasedData(ABC):
     """Abstract base class for representing data observed over some observation intervals."""
@@ -385,4 +397,64 @@ class EventData(TimeBasedData):
         '''Return the union of two EventData objects'''
         return self | other
 
+def plot_PointData_multiple(spikeplots, axis=None):
+    if not axis:
+        axis = plt.axes()
         
+    for i, spikeplot in enumerate(spikeplots):
+        plot_PointData(spikeplot[0], axis=axis, ypos=i)
+
+    axis.set_yticks(range(i+1))
+    axis.set_yticklabels( [spikeplot[1] for spikeplot in spikeplots])
+    xl = axis.get_xlim()
+    axis.set_ylim([-1,i+1])
+    axis.invert_yaxis()
+
+
+def plot_PointData(PointData, ypos=1, axis=None, interval_height=25, tick_height=10, color='b'):
+    '''Plot a Point Process (events + their enclosing intervals)'''
+    obs_ivl_arr = PointData.obs_intervals.to_array().T
+    
+    if not axis:
+        axis = plt.axes()
+    
+    ivl_h = axis.plot(obs_ivl_arr, np.full(obs_ivl_arr.shape, ypos),
+                     color=color,
+                     linewidth=interval_height,
+                     marker='',
+                     alpha=0.1,
+                     solid_capstyle='butt')
+    points_h = axis.plot(PointData.point_times, np.full(PointData.point_times.shape, ypos),
+                       color=color,
+                       marker='|', 
+                       markersize=tick_height, 
+                       linestyle='')
+    
+    xtick_locator = mticker.AutoLocator()
+    xtick_formatter = mticker.FuncFormatter(fmt_truncate_posix)
+
+    axis.xaxis.set_major_locator(xtick_locator)
+    axis.xaxis.set_major_formatter(xtick_formatter)
+
+    axis.set_xlabel('Time (s)')
+
+
+    return ivl_h, points_h
+
+def fmt_truncate_posix (x, pos):
+    oom = 6
+    #     offset_str = "%de%d + \n" % (x // 10 ** oom, oom)
+    ellipsis = "\u2026"
+    offset_str = format(floor(x // 10 ** oom), ",d")
+    # oom zero-padded digits before decimal point and up to 6 digits past it 
+    # (no trailing zeros)
+    # NB no way to do this with single format string: %05.11g gives too many digits past 
+    # the decimal when integer part is small.
+    remainder_str = format(floor(x % 10 ** oom), "07,d") + \
+                    ("%0.6g" % (x % 1))[1:] # omit leading 0
+
+    if pos == 0: # first visible tick
+        return offset_str + "," + remainder_str
+
+    else:
+        return "\u2026" + remainder_str
