@@ -11,8 +11,6 @@ import matplotlib.ticker as mticker
 from math import floor
 
 
-
-
 class TimeIntervals():
     """
     Class for representing a list of non-overlapping time intervals.
@@ -89,12 +87,13 @@ class TimeIntervals():
             ivl = self.intervals[self.iter_idx]
             self.iter_idx += 1
             return np.array([ivl.lower, ivl.upper])
-    
+
     def __getitem__(self, idx):
         # allow indexing of sub-intervals, returning a new TimeIntervals
         if idx >= len(self.intervals):
             raise IndexError("TimeIntervals index out of range.")
         return TimeIntervals(self.to_array()[idx])
+
     
 class TimeBasedData(ABC):
     """Abstract base class for representing data observed over some observation intervals."""
