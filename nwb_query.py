@@ -1,8 +1,9 @@
 import copy
 import numpy as np
+import pandas as pd
 from abc import ABC, abstractmethod
 from scipy.interpolate import interp1d
-import intervals as iv
+import intervals as iv  # backend for TimeIntervals
 
 
 class TimeIntervals():
@@ -106,21 +107,24 @@ class TimeBasedData(ABC):
         
 class PointData(TimeBasedData):
     '''
-    Represent a point process, a list of discrete event times occurring during defined intervals,
-    optionally with mark data associated with each event.
+    Represent a list of discrete times occurring during defined intervals,
+    optionally with mark data associated with each time.
     '''    
-    def __init__(self, event_times, obs_intervals, marks=None):
-        if not isinstance(event_times, np.ndarray):
-            raise TypeError("'event_times' must be a numpy.array")
-        if not(event_times.ndim==1):
-            raise ValueError("'event_times' must be a vector (1-dimensional array).")
-        if marks and not isinstance(marks, np.ndarray):
-            raise TypeError("'marks' must be a numpy.array")
-        if marks and not(marks.shape[0]==self.event_times.shape[0]):
-            raise ValueError("'marks' must have same # of entries (rows) as 'event_times'.")   
-        self.event_times = event_times
+    def __init__(self, point_times, obs_intervals, marks=None):
+        self.typecheck(point_times, marks=marks) # obs_intervals is typechecked in TimeBasedData
+        self.point_times = point_times
         self.obs_intervals = obs_intervals  # this uses the inherited setter
         self.marks = marks
+    
+    def typecheck(self, point_times, marks=None):
+        if not isinstance(point_times, np.ndarray):
+            raise TypeError("'point_times' must be a numpy.array")
+        if not(point_times.ndim==1):
+            raise ValueError("'point_times' must be a vector (1-dimensional array).")
+        if marks and not isinstance(marks, np.ndarray):
+            raise TypeError("'marks' must be a numpy.array")
+        if marks and not(marks.shape[0]==self.point_times.shape[0]):
+            raise ValueError("'marks' must have same # of entries (rows) as 'point_times'.")
     
     def time_query(self, query):
         '''Return PointData with data available during requested query.'''
@@ -133,20 +137,23 @@ class PointData(TimeBasedData):
         else:
             raise TypeError("PointData.query currently only supports queries of " +
                             "type nwb_query.EventData or nwb_query.TimeIntervals")
-            
-        # Collect the valid event_times in the query
-        result_event_times = np.array([t for t in self.event_times if t in query])
-        return PointData(event_times=result_event_times,
-                         obs_intervals=result_obs_intervals)
+        # Collect the valid point_times in the query
+        valid_indices = [i for (i, t) in enumerate(self.point_times) if t in query]
+        result_point_times = self.point_times[valid_indices]
+        if self.marks:
+            result_marks = self.marks[valid_indices, :]
+            return PointData(result_point_times, result_obs_intervals, result_marks)
+        else:
+            return PointData(result_point_times, result_obs_intervals)
         
         
     def mark_with_ContinuousData(self, continuous_data, merge_obs_intervals=True, interpolation='linear'):
         """
-        Evaluate ContinuousData at each event_time and add result as a corresponding mark. 
+        Evaluate ContinuousData at each point_time and add result as a corresponding mark. 
         
         If merge_obs_intervals=True, the resulting PointData will have obs_intervals that 
         are the intersection of the obs_intervals of the inputs, and it may not contain all 
-        of the original event_times. Otherwise, all event_times will be returned, but will be
+        of the original point_times. Otherwise, all point_times will be returned, but will be
         marked with 'None' at times when continuous_data is undefined (i.e. outside its 
         obs_intervals).
         
@@ -154,61 +161,61 @@ class PointData(TimeBasedData):
         'quadratic', 'cubic')
         
         """
-        
-        if continuous_data.data.ndim > 1 and not (interpolation == 'nearest' or interpolation == 'linear'):
+        if continuous_data.samples.ndim > 1 and not (interpolation == 'nearest' or interpolation == 'linear'):
             raise NotImplementedError("For data > 1-D, only 'nearest' and 'linear' interpolation are currently suppported")
 
-        # Make an interpolation function using the continuous data and timestamps, which we will use to
-        # evaluate the ContinuousData at the event_times of this PointData
-        interpolator = interp1d(x=continuous_data.timestamps, 
-                                y=continuous_data.data, 
+        # Make an interpolation function using the continuous data and sample_times, which we will use to
+        # evaluate the ContinuousData at the point_times of this PointData
+        interpolator = interp1d(x=continuous_data.sample_times, 
+                                y=continuous_data.samples, 
                                 kind=interpolation, 
                                 axis=0)
         
-        mark_shape = continuous_data.data.shape[1:] # 1 row per event, but mark data can be multi-d
+        mark_shape = continuous_data.samples.shape[1:] # 1 row per time point, but mark data can be multi-d
         
         if merge_obs_intervals:
-            # timequery on pp: intersects obs_intervals and discards event_times outside overlapping region
+            # timequery on pp: intersects obs_intervals and discards point_times outside overlapping region
             result_pp = self.time_query(continuous_data.obs_intervals)
-            # don't need to worry about events outside of the continuous data, b/c we have already filtered event_times
-            result_pp.marks = interpolator(result_pp.event_times)
+            # don't need to worry about time points outside of the continuous data, b/c we have already filtered point_times
+            result_pp.marks = interpolator(result_pp.point_times)
             return result_pp
         else:
             result_marks = []
-            for event_t in self.event_times:
-                if event_t in continuous_data.obs_intervals:
-                    result_marks.append(interpolator(event_t), 'extrapolate') # extrapolate when within obs_intervals but outside last sample?
+            for t in self.point_times:
+                if t in continuous_data.obs_intervals:
+                    result_marks.append(interpolator(t), 'extrapolate') # extrapolate when within obs_intervals but outside last sample?
                 else:
-                    result_marks.append(np.full(mark_shape, None))  # set mark to None if the event occurs outside the continuous data                             
-            return PointData(self.event_times, self.obs_intervals,
-                                     marks=np.concatenate(result_marks,axis=0))
+                    result_marks.append(np.full(mark_shape, None))  # set mark to None if the time point occurs outside the continuous data   
+                    
+            return PointData(self.point_times, self.obs_intervals, marks=np.concatenate(result_marks, axis=0))
+
 
 class ContinuousData(TimeBasedData):
     
-    def __init__(self, data, timestamps, obs_intervals=None, find_gaps=False):
-        if not obs_intervals:
-            if find_gaps:
-                obs_intervals = self.__find_obs_intervals(self.timestamps)
-            else:
-                timestamps_range = np.array([[timestamps[0], timestamps[-1]]])
-                obs_intervals = TimeIntervals(timestamps_range)
-        self.obs_intervals = obs_intervals # uses the interited setter
-        self.data = data
-        self.timestamps = timestamps
+    def __init__(self, samples, sample_times, obs_intervals=None, find_gaps=False):
+        if not obs_intervals and find_gaps:
+            self.obs_intervals = self.__find_obs_intervals(self.sample_times)
+        elif not obs_intervals:
+            sample_times_range = np.array([[sample_times[0], sample_times[-1]]])
+            self.obs_intervals = TimeIntervals(sample_times_range)
+        else:
+            self.obs_intervals = obs_intervals
+        self.samples = samples
+        self.sample_times = sample_times
     
-    def __find_obs_intervals(self, timestamps, gap_threshold_samps=1.5):
+    def __find_obs_intervals(self, sample_times, gap_threshold_samps=1.5):
         """Optionally build obs_intervals from any gaps in the data.
         
         This is currently not tested.
         """
         import warnings
         warnings.warn("Deducing obs_interval is currently untested, may be bogus.")
-        stepsize = np.mean(np.diff(timestamps, 1)) # use first derivatives to estimate the stepsize
-        diffs = np.diff(timestamps, 2)  # use second derivative to identify gaps
+        stepsize = np.mean(np.diff(sample_times, 1)) # use first derivatives to estimate the stepsize
+        diffs = np.diff(sample_times, 2)  # use second derivative to identify gaps
         epsilon = gap_threshold_samps * stepsize  # only count if the gap is big with respect to the stepsize
         ivl_end_indices = np.where(diffs > epsilon)[0] + 1  
         if ivl_end_indices.size == 0:  # no gaps in observation
-            return TimeIntervals(np.array([[timestamps[0], timestamps[-1]]]))
+            return TimeIntervals(np.array([[sample_times[0], sample_times[-1]]]))
         else:
             # append the last valid index of the array to the end indices
             np.append(ivl_end_indices, ivl_end_indices.size-1) 
@@ -216,11 +223,11 @@ class ContinuousData(TimeBasedData):
             bounds = []  
             for i, end_idx in enumerate(ivl_end_indices):
                 if i == 0:   # handle the first interval
-                    bounds.append([self.timestamps[0], self.timestamps[end_idx]])
+                    bounds.append([self.sample_times[0], self.sample_times[end_idx]])
                 else:
                     previous_end_idx = ivl_end_indices[i-1]
                     new_start_idx = previous_end_idx + 1
-                    bounds.append([self.timestamps[new_start_idx], self.timestamps[end_idx]])
+                    bounds.append([self.sample_times[new_start_idx], self.sample_times[end_idx]])
             return TimeIntervals(np.array(bounds))
             
 
@@ -228,7 +235,7 @@ class ContinuousData(TimeBasedData):
         """Return ContinuousData in the specified time_intervals.
         
         The resulting obs_intervals is the intersection of the obs_intervals of this ContinuousData and
-        the provided. time_intevals. The resulting data and timestamps are those occurring in the 
+        the provided. time_intevals. The resulting samples and sample_times are those occurring in the 
         resulting obs_intervals.
         """
         # Constrain the resulting obs_intervals to where the data have support (i.e. intersect with selection intervals)
@@ -239,42 +246,42 @@ class ContinuousData(TimeBasedData):
         else:
             raise TypeError("'query' must be of type nwb_query.EventData or nwb_query.TimeIntervals")
         
-        # Get index into data and timestamps of interval starts/ends
+        # Get index into samples and sample_times of interval starts/ends
         result_bounds = result_obs_intervals.to_array()
         result_lower_bounds = result_bounds[:,0]
         result_upper_bounds = result_bounds[:,1]
-        # Intervals are closed; find first/last matching timestamps for lower/upper bounds
-        result_lower_index = np.searchsorted(self.timestamps, result_lower_bounds, side='left')
-        result_upper_index = np.searchsorted(self.timestamps, result_upper_bounds, side='right')
+        # Intervals are closed; find first/last matching sample_times for lower/upper bounds
+        result_lower_index = np.searchsorted(self.sample_times, result_lower_bounds, side='left')
+        result_upper_index = np.searchsorted(self.sample_times, result_upper_bounds, side='right')
 
         # TODO: speedup by initializing output arrays (use index to compute size)
-        result_data = []
-        result_timestamps = []
+        result_samples = []
+        result_sample_times = []
         for idx_lower, idx_upper in zip(result_lower_index, result_upper_index):
-            result_data.append(self.data[idx_lower:idx_upper,:])
-            result_timestamps.append(self.timestamps[idx_lower:idx_upper])
+            result_samples.append(self.samples[idx_lower:idx_upper, :])
+            result_sample_times.append(self.sample_times[idx_lower:idx_upper])
         
-        return ContinuousData(data=np.concatenate(result_data),
-                              timestamps=np.concatenate(result_timestamps),
+        return ContinuousData(samples=np.concatenate(result_samples),
+                              sample_times=np.concatenate(result_sample_times),
                               obs_intervals=result_obs_intervals)
     
     
-    def filter_intervals(self, func, data_cols=False):
+    def filter_intervals(self, func, domain_cols=False):
         """Return a EventData where the ContinuousData fulfills a boolean lambda function ('func').
         
-        By default, 'func' should accept all columns of ContinuousData.data as input.
+        By default, 'func' should accept all columns of ContinuousData.samples as input.
         Otherwise, provide a list of the column indices that should be used.
         """
-        if self.data.shape[0] == 0:
+        if self.samples.shape[0] == 0:
             return EventData(event_intervals=TimeIntervals(),
-                                 obs_intervals=self.obs_intervals)
+                             obs_intervals=self.obs_intervals)
                                  
-        # apply the function to the correct columns of the data
-        if data_cols:
-            assert max(data_cols) < self.data.shape[1]
-            func_of_data = func(self.data[:, data_cols])
+        # apply the function to the correct columns of the samples
+        if domain_cols:
+            assert max(domain_cols) < self.samples.shape[1]
+            func_of_data = func(self.samples[:, domain_cols])
         else:
-            func_of_data = func(self.data)
+            func_of_data = func(self.samples)
         
         # Get the up/down crossing indices, i.e. the first/last elements in each interval that fulfill 'func'
         assert func_of_data.dtype == 'bool'
@@ -291,8 +298,8 @@ class ContinuousData(TimeBasedData):
             down_crossings = np.append(down_crossings, func_of_data.shape[0]-1)
         
         # Create the time intervals
-        up_times = self.timestamps[up_crossings]
-        down_times = self.timestamps[down_crossings]
+        up_times = self.sample_times[up_crossings]
+        down_times = self.sample_times[down_crossings]
         interval_bounds = np.array((up_times, down_times)).T
         filtered_intervals = TimeIntervals(interval_bounds)
         
