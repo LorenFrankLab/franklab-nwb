@@ -36,15 +36,15 @@ class TimeIntervals():
             # input is a 1D (1 x 2) numpy vector
             return iv.closed(*bounds)
         else:
-            raise TypeError("'bounds' must be an m x 2 numpy array (where m is the number of obs intervals) or " +
-                            "a 1x2 numpy vector (for a single obs interval)")
+            raise TypeError("'bounds' must be an m x 2 numpy array (where m is the number of valid intervals) or " +
+                            "a 1x2 numpy vector (for a single valid interval)")
         
     def to_array(self):
         '''Create m x 2 numpy array from the set of intervals in an TimeIntervals object'''
         return np.array([[atomic_ivl.lower, atomic_ivl.upper] for atomic_ivl in self.intervals])
     
     def durations(self):
-        '''Return duration of each obs_interval'''
+        '''Return duration of each valid_interval'''
         return np.diff(self.to_array(), axis=1)
         
     def __and__(self, time_intervals):
@@ -94,37 +94,41 @@ class TimeIntervals():
             raise IndexError("TimeIntervals index out of range.")
         return TimeIntervals(self.to_array()[idx])
 
+    def __repr__(self):
+        return (f'{self.__class__.__qualname__}('
+           f'{self.intervals!r})')
     
 class TimeBasedData(ABC):
-    """Abstract base class for representing data observed over some observation intervals."""
+    """Abstract base class for representing data observed over some time intervals."""
     
     # Abstract method. All subclasses must implement a time_query method.
     @abstractmethod     
     def time_query(self, query):
         raise NotImplementedError("Subclasses of abstract class Data must implement 'time_query' method.")
         
-    # All subclasses will inherit an obs_intervals property. May be overridden.
+    # All subclasses will inherit a valid_intervals property. May be overridden.
     @property
-    def obs_intervals(self):
-        return self._obs_intervals
+    def valid_intervals(self):
+        return self._valid_intervals
     
-    @obs_intervals.setter
-    def obs_intervals(self, new_obs_intervals):
-        if not(isinstance(new_obs_intervals, TimeIntervals)):
-            raise TypeError("'obs_intervals' must be of type nwb_query.TimeIntervals")
-        self._obs_intervals = new_obs_intervals
+    @valid_intervals.setter
+    def valid_intervals(self, new_valid_intervals):
+        if not(isinstance(new_valid_intervals, TimeIntervals)):
+            raise TypeError("'valid_intervals' must be of type nwb_query.TimeIntervals")
+        self._valid_intervals = new_valid_intervals
         
         
         
 class PointData(TimeBasedData):
     '''
-    Represent a list of discrete times occurring during defined intervals,
-    optionally with mark data associated with each time.
+    Represent events occurring at discrete points in time (i.e. with no duration), observed
+    over some time intervals (i.e. a point process). Optionally with mark data associated
+    with each event (i.e. a marked point process).
     '''    
-    def __init__(self, point_times, obs_intervals, marks=None):
-        self.typecheck(point_times, marks=marks) # obs_intervals is typechecked in TimeBasedData
+    def __init__(self, point_times, valid_intervals, marks=None):
+        self.typecheck(point_times, marks=marks) # valid_intervals is typechecked in TimeBasedData
         self.point_times = point_times
-        self.obs_intervals = obs_intervals  # this uses the inherited setter
+        self.valid_intervals = valid_intervals  # this uses the inherited setter
         self.marks = marks
     
     def typecheck(self, point_times, marks=None):
@@ -140,11 +144,11 @@ class PointData(TimeBasedData):
     def time_query(self, query):
         '''Return PointData with data available during requested query.'''
         
-        # Find the resulting obs_intervals where the data have support (i.e. intersect with the selection intervals)
+        # Find the resulting valid_intervals where the data have support (i.e. intersect with the selection intervals)
         if isinstance(query, EventData):
-            result_obs_intervals = self.obs_intervals & query.event_intervals
+            result_valid_intervals = self.valid_intervals & query.event_intervals
         elif isinstance(query, TimeIntervals):
-            result_obs_intervals = self.obs_intervals & query
+            result_valid_intervals = self.valid_intervals & query
         else:
             raise TypeError("PointData.query currently only supports queries of " +
                             "type nwb_query.EventData or nwb_query.TimeIntervals")
@@ -153,20 +157,20 @@ class PointData(TimeBasedData):
         result_point_times = self.point_times[valid_indices]
         if self.marks:
             result_marks = self.marks[valid_indices, :]
-            return PointData(result_point_times, result_obs_intervals, result_marks)
+            return PointData(result_point_times, result_valid_intervals, result_marks)
         else:
-            return PointData(result_point_times, result_obs_intervals)
+            return PointData(result_point_times, result_valid_intervals)
         
         
-    def mark_with_ContinuousData(self, continuous_data, merge_obs_intervals=True, interpolation='linear'):
+    def mark_with_ContinuousData(self, continuous_data, merge_valid_intervals=True, interpolation='linear'):
         """
         Evaluate ContinuousData at each point_time and add result as a corresponding mark. 
         
-        If merge_obs_intervals=True, the resulting PointData will have obs_intervals that 
-        are the intersection of the obs_intervals of the inputs, and it may not contain all 
+        If merge_valid_intervals=True, the resulting PointData will have valid_intervals that 
+        are the intersection of the valid_intervals of the inputs, and it may not contain all 
         of the original point_times. Otherwise, all point_times will be returned, but will be
         marked with 'None' at times when continuous_data is undefined (i.e. outside its 
-        obs_intervals).
+        valid_intervals).
         
         'interpolation' is passed to scipy.interp1d as 'kind'. Available kinds include ('nearest', 'linear'
         'quadratic', 'cubic')
@@ -184,43 +188,45 @@ class PointData(TimeBasedData):
         
         mark_shape = continuous_data.samples.shape[1:] # 1 row per time point, but mark data can be multi-d
         
-        if merge_obs_intervals:
-            # timequery on pp: intersects obs_intervals and discards point_times outside overlapping region
-            result_pp = self.time_query(continuous_data.obs_intervals)
+        if merge_valid_intervals:
+            # timequery on pp: intersects valid_intervals and discards point_times outside overlapping region
+            result_pp = self.time_query(continuous_data.valid_intervals)
             # don't need to worry about time points outside of the continuous data, b/c we have already filtered point_times
             result_pp.marks = interpolator(result_pp.point_times)
             return result_pp
         else:
             result_marks = []
             for t in self.point_times:
-                if t in continuous_data.obs_intervals:
-                    result_marks.append(interpolator(t), 'extrapolate') # extrapolate when within obs_intervals but outside last sample?
+                if t in continuous_data.valid_intervals:
+                    result_marks.append(interpolator(t), 'extrapolate') # extrapolate when within valid_intervals but outside last sample?
                 else:
                     result_marks.append(np.full(mark_shape, None))  # set mark to None if the time point occurs outside the continuous data   
                     
-            return PointData(self.point_times, self.obs_intervals, marks=np.concatenate(result_marks, axis=0))
+            return PointData(self.point_times, self.valid_intervals, marks=np.concatenate(result_marks, axis=0))
 
 
 class ContinuousData(TimeBasedData):
-    
-    def __init__(self, samples, sample_times, obs_intervals=None, find_gaps=False):
-        if not obs_intervals and find_gaps:
-            self.obs_intervals = self.__find_obs_intervals(self.sample_times)
-        elif not obs_intervals:
+    '''
+    Represent continuously-sampled numerical data, observed over some time intervals.
+    '''        
+    def __init__(self, samples, sample_times, valid_intervals=None, find_gaps=False):
+        if not valid_intervals and find_gaps:
+            self.valid_intervals = self.__find_valid_intervals(self.sample_times)
+        elif not valid_intervals:
             sample_times_range = np.array([[sample_times[0], sample_times[-1]]])
-            self.obs_intervals = TimeIntervals(sample_times_range)
+            self.valid_intervals = TimeIntervals(sample_times_range)
         else:
-            self.obs_intervals = obs_intervals
+            self.valid_intervals = valid_intervals
         self.samples = samples
         self.sample_times = sample_times
     
-    def __find_obs_intervals(self, sample_times, gap_threshold_samps=1.5):
-        """Optionally build obs_intervals from any gaps in the data.
+    def __find_valid_intervals(self, sample_times, gap_threshold_samps=1.5):
+        """Optionally build valid_intervals from any gaps in the data.
         
         This is currently not tested.
         """
         import warnings
-        warnings.warn("Deducing obs_interval is currently untested, may be bogus.")
+        warnings.warn("Deducing valid_interval is currently untested, may be bogus.")
         stepsize = np.mean(np.diff(sample_times, 1)) # use first derivatives to estimate the stepsize
         diffs = np.diff(sample_times, 2)  # use second derivative to identify gaps
         epsilon = gap_threshold_samps * stepsize  # only count if the gap is big with respect to the stepsize
@@ -230,7 +236,7 @@ class ContinuousData(TimeBasedData):
         else:
             # append the last valid index of the array to the end indices
             np.append(ivl_end_indices, ivl_end_indices.size-1) 
-            # build the obs_intervals
+            # build the valid_intervals
             bounds = []  
             for i, end_idx in enumerate(ivl_end_indices):
                 if i == 0:   # handle the first interval
@@ -245,20 +251,20 @@ class ContinuousData(TimeBasedData):
     def time_query(self, query):
         """Return ContinuousData in the specified time_intervals.
         
-        The resulting obs_intervals is the intersection of the obs_intervals of this ContinuousData and
+        The resulting valid_intervals is the intersection of the valid_intervals of this ContinuousData and
         the provided. time_intevals. The resulting samples and sample_times are those occurring in the 
-        resulting obs_intervals.
+        resulting valid_intervals.
         """
-        # Constrain the resulting obs_intervals to where the data have support (i.e. intersect with selection intervals)
+        # Constrain the resulting valid_intervals to where the data have support (i.e. intersect with selection intervals)
         if isinstance(query, EventData):
-            result_obs_intervals = self.obs_intervals & query.event_intervals
+            result_valid_intervals = self.valid_intervals & query.event_intervals
         elif isinstance(query, TimeIntervals):
-            result_obs_intervals = self.obs_intervals & query
+            result_valid_intervals = self.valid_intervals & query
         else:
             raise TypeError("'query' must be of type nwb_query.EventData or nwb_query.TimeIntervals")
         
         # Get index into samples and sample_times of interval starts/ends
-        result_bounds = result_obs_intervals.to_array()
+        result_bounds = result_valid_intervals.to_array()
         result_lower_bounds = result_bounds[:,0]
         result_upper_bounds = result_bounds[:,1]
         # Intervals are closed; find first/last matching sample_times for lower/upper bounds
@@ -274,7 +280,7 @@ class ContinuousData(TimeBasedData):
         
         return ContinuousData(samples=np.concatenate(result_samples),
                               sample_times=np.concatenate(result_sample_times),
-                              obs_intervals=result_obs_intervals)
+                              valid_intervals=result_valid_intervals)
     
     
     def filter_intervals(self, func, domain_cols=False):
@@ -285,7 +291,7 @@ class ContinuousData(TimeBasedData):
         """
         if self.samples.shape[0] == 0:
             return EventData(event_intervals=TimeIntervals(),
-                             obs_intervals=self.obs_intervals)
+                             valid_intervals=self.valid_intervals)
                                  
         # apply the function to the correct columns of the samples
         if domain_cols:
@@ -314,15 +320,15 @@ class ContinuousData(TimeBasedData):
         interval_bounds = np.array((up_times, down_times)).T
         filtered_intervals = TimeIntervals(interval_bounds)
         
-        # Return a EventData instance, with the same obs_intervals as this ContinuousData instance
+        # Return a EventData instance, with the same valid_intervals as this ContinuousData instance
         return EventData(event_intervals=filtered_intervals,
-                         obs_intervals=self.obs_intervals)
+                         valid_intervals=self.valid_intervals)
         
 
     
 
 class EventData(TimeBasedData):
-    """Represent events occurring during a period of observation.
+    """Represent events (with a duration) occurring during a period of time.
     
     
     A EventData object can be used for querying additional datasets, while matinating the 
@@ -331,53 +337,53 @@ class EventData(TimeBasedData):
     EventData object to query spiking data for a clustered unit. 
     """
     
-    def __init__(self, event_intervals, obs_intervals):
+    def __init__(self, event_intervals, valid_intervals):
         if not isinstance(event_intervals, TimeIntervals):
             raise TypeError("'event_intervals' must be a query.TimeIntervals instance")
-        if not np.all([event_ivl in obs_intervals for event_ivl in event_intervals.intervals]):
-            raise ValueError("'event_intervals' must be fully contained in 'obs_intervals'.")
+        if not np.all([event_ivl in valid_intervals for event_ivl in event_intervals.intervals]):
+            raise ValueError("'event_intervals' must be fully contained in 'valid_intervals'.")
         self.event_intervals = event_intervals
-        self.obs_intervals = obs_intervals # uses the inherited setter
+        self.valid_intervals = valid_intervals # uses the inherited setter
     
     
     def time_query(self, query):
         '''Return EventData with events and observation intervals available during the requested query.'''
         
-        # Find the resulting event_intervals and obs_intervals
+        # Find the resulting event_intervals and valid_intervals
         if isinstance(query, EventData):
             result_event_intervals = self.event_intervals & query.event_intervals
-            result_obs_intervals = self.obs_intervals & query.event_intervals   # confirm this
+            result_valid_intervals = self.valid_intervals & query.event_intervals   # confirm this
         elif isinstance(query, TimeIntervals):
             result_event_intervals = self.event_intervals & query
-            result_obs_intervals = self.obs_intervals & query
+            result_valid_intervals = self.valid_intervals & query
         else:
             raise TypeError("EventData.query currently only supports queries of " +
                             "type nwb_query.EventData or nwb_query.TimeIntervals")
         return EventData(event_intervals=result_event_intervals,
-                         obs_intervals=result_obs_intervals)
+                         valid_intervals=result_valid_intervals)
         
     def __contains__(self, t):
         """Check whether time t is in the event intervals."""
         return t in self.event_intervals
     
-    def obs_contain(self, t):
+    def valid_contain(self, t):
         """Check whether time t is in the EventData's observation intervals."""
-        return t in self.obs_intervals
+        return t in self.valid_intervals
     
     def durations(self):
         """Durations of the event intervals."""
         return self.event_intervals.durations()
     
-    def obs_durations(self):
+    def valid_durations(self):
         """Durations of the observation intervals."""
-        return self.obs_intervals.durations()
+        return self.valid_intervals.durations()
     
     def __and__(self, other):
         '''Return the intersection of two EventData objects'''
         if not isinstance(other, EventData):
             raise TypeError("'other' must be a nwb_query.EventData object")
         result_event_ivl = self.event_intervals & other.event_intervals
-        result_obs_ivl = self.obs_intervals & other.obs_intervals
+        result_obs_ivl = self.valid_intervals & other.valid_intervals
         return EventData(result_event_ivl, result_obs_ivl)
 
     def intersect(self, other):
@@ -389,7 +395,7 @@ class EventData(TimeBasedData):
         if not isinstance(other, EventData):
             raise TypeError("'other' must be a nwb_query.EventData object")
         result_event_ivl = self.event_intervals | other.event_intervals
-        result_obs_ivl = self.obs_intervals | other.obs_intervals
+        result_obs_ivl = self.valid_intervals | other.valid_intervals
         return EventData(result_event_ivl, result_obs_ivl)
 
     def union(self, other):
@@ -412,12 +418,12 @@ def plot_PointData_multiple(spikeplots, axis=None):
 
 def plot_PointData(PointData, ypos=1, axis=None, interval_height=25, tick_height=10, color='b'):
     '''Plot a Point Process (events + their enclosing intervals)'''
-    obs_ivl_arr = PointData.obs_intervals.to_array().T
+    valid_ivl_arr = PointData.valid_intervals.to_array().T
     
     if not axis:
         axis = plt.axes()
     
-    ivl_h = axis.plot(obs_ivl_arr, np.full(obs_ivl_arr.shape, ypos),
+    ivl_h = axis.plot(valid_ivl_arr, np.full(valid_ivl_arr.shape, ypos),
                      color=color,
                      linewidth=interval_height,
                      marker='',
