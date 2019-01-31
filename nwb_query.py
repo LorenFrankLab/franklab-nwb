@@ -332,7 +332,7 @@ class EventData(TimeBasedData):
     
     
     A EventData object can be used for querying additional datasets, while matinating the 
-    correct observation intervals from the initial dataset. For example, selecting time intervals 
+    correct valid intervals from the initial dataset. For example, selecting time intervals 
     where an animal was running faster than a threshold speed, and using the resulting 
     EventData object to query spiking data for a clustered unit. 
     """
@@ -347,7 +347,7 @@ class EventData(TimeBasedData):
     
     
     def time_query(self, query):
-        '''Return EventData with events and observation intervals available during the requested query.'''
+        '''Return EventData with events and valid intervals available during the requested query.'''
         
         # Find the resulting event_intervals and valid_intervals
         if isinstance(query, EventData):
@@ -367,7 +367,7 @@ class EventData(TimeBasedData):
         return t in self.event_intervals
     
     def valid_contain(self, t):
-        """Check whether time t is in the EventData's observation intervals."""
+        """Check whether time t is in the EventData's valid intervals."""
         return t in self.valid_intervals
     
     def durations(self):
@@ -375,7 +375,7 @@ class EventData(TimeBasedData):
         return self.event_intervals.durations()
     
     def valid_durations(self):
-        """Durations of the observation intervals."""
+        """Durations of the valid intervals."""
         return self.valid_intervals.durations()
     
     def __and__(self, other):
@@ -383,8 +383,8 @@ class EventData(TimeBasedData):
         if not isinstance(other, EventData):
             raise TypeError("'other' must be a nwb_query.EventData object")
         result_event_ivl = self.event_intervals & other.event_intervals
-        result_obs_ivl = self.valid_intervals & other.valid_intervals
-        return EventData(result_event_ivl, result_obs_ivl)
+        result_valid_ivl = self.valid_intervals & other.valid_intervals
+        return EventData(result_event_ivl, result_valid_ivl)
 
     def intersect(self, other):
         '''Return the intersection of two EventData objects'''
@@ -395,8 +395,8 @@ class EventData(TimeBasedData):
         if not isinstance(other, EventData):
             raise TypeError("'other' must be a nwb_query.EventData object")
         result_event_ivl = self.event_intervals | other.event_intervals
-        result_obs_ivl = self.valid_intervals | other.valid_intervals
-        return EventData(result_event_ivl, result_obs_ivl)
+        result_valid_ivl = self.valid_intervals | other.valid_intervals
+        return EventData(result_event_ivl, result_valid_ivl)
 
     def union(self, other):
         '''Return the union of two EventData objects'''
