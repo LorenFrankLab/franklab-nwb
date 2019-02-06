@@ -142,7 +142,21 @@ class PointData(TimeBasedData):
             raise ValueError("'marks' must have same # of entries (rows) as 'point_times'.")
     
     def time_query(self, query):
-        '''Return PointData with data available during requested query.'''
+        '''
+        Return PointData with data available during requested query.
+        
+        Arguments
+        ---------
+        query : EventData, TimeIntervals
+            Time intervals to select from the PointData object.
+        
+        Returns
+        -------
+        query_result : PointData
+            New PointData object with the resulting valid_intervals being the intersection of the 
+            original valid_intervals and the query intervals. The resulting point_data and marks are those 
+            found in the resulting valid_intervals.
+        '''
         
         # Find the resulting valid_intervals where the data have support (i.e. intersect with the selection intervals)
         if isinstance(query, EventData):
@@ -166,15 +180,26 @@ class PointData(TimeBasedData):
         """
         Evaluate ContinuousData at each point_time and add result as a corresponding mark. 
         
-        If merge_valid_intervals=True, the resulting PointData will have valid_intervals that 
-        are the intersection of the valid_intervals of the inputs, and it may not contain all 
-        of the original point_times. Otherwise, all point_times will be returned, but will be
-        marked with 'None' at times when continuous_data is undefined (i.e. outside its 
-        valid_intervals).
-        
-        'interpolation' is passed to scipy.interp1d as 'kind'. Available kinds include ('nearest', 'linear'
-        'quadratic', 'cubic')
-        
+        Arguments
+        ---------
+        continuous_data : ContinuousData
+            The data to mark this PointProcess with. The timestamps need not overlap exactly, as we will
+            interpolate the data value at each time in the PointProcess.
+        merge_valid_intervals : True (default), False
+            If merge_valid_intervals=True, the resulting PointData will have valid_intervals that 
+            are the intersection of the valid_intervals of the inputs, and it may not contain all 
+            of the original point_times. Otherwise, all point_times will be returned, but will be
+            marked with 'None' at times when continuous_data is undefined (i.e. outside its 
+            valid_intervals).
+        interpolation : 'linear' (default), 'nearest', 'quadratic', 'cubic'
+            The interpolation type to be passed into scipy.interp1d as 'kind'.
+            
+        Returns
+        -------
+        marked_point_process : PointProcess
+            A new PointProcess with each point_time associated with marked data, the values of which
+            are interpolated from the input ContinuousData object. Under the hood this is currently
+            a Pandas DataFrame.
         """
         if continuous_data.samples.ndim > 1 and not (interpolation == 'nearest' or interpolation == 'linear'):
             raise NotImplementedError("For data > 1-D, only 'nearest' and 'linear' interpolation are currently suppported")
@@ -266,15 +291,19 @@ class ContinuousData(TimeBasedData):
             
 
     def time_query(self, query):
-        """Return ContinuousData in the specified time_intervals. 
+        """
+        Return ContinuousData in the specified time_intervals. 
         
-        Arguments:
-            query (EventData or TimeIntervals) - time intervals to select from the ContinousData
+        Arguments
+        ---------
+        query : EventData, TimeIntervals
+            Time periods to select from the ContinousData
         
-        Returns:
-            A new ContinuousData object, where the resulting valid_intervals are the 
-            intersection of the valid_intervals of this ContinuousData and the provided time_intevals. 
-            The resulting samples and sample_times are those occurring in the resulting valid_intervals.
+        Returns
+        -------
+        A new ContinuousData object, where the resulting valid_intervals are the 
+        intersection of the valid_intervals of this ContinuousData and the provided time_intevals. 
+        The resulting samples and sample_times are those occurring in the resulting valid_intervals.
         """        
         
         # Constrain the resulting valid_intervals to where the data have support (i.e. intersect with selection intervals)
@@ -309,13 +338,18 @@ class ContinuousData(TimeBasedData):
                               valid_intervals=result_valid_intervals)
     
     def data_query(self, query_columns):
-        """Return a new ContinuousData with samples only including the specified columns.
+        """
+        Return a new ContinuousData with samples only including the specified columns.
         
-        Arguments:
-            query_columns (array_like) - list of column names (str) to select from the samples
+        Arguments
+        ---------
+        query_columns : list, np.ndarray
+            List or array of column names (strings) to select from the samples
             
-        Returns:
-            A new ContinuousData object with the same sample_times and valid_intervals, but where 
+        Returns
+        -------
+        query_result : ContinuousData
+            Has the same sample_times and valid_intervals as the original, but 
             samples contains only the columns in query_columns.
         """
         if not (isinstance(query_columns, list) or isinstance(query_columns, np.ndarray)):
@@ -332,16 +366,20 @@ class ContinuousData(TimeBasedData):
         
     
     def filter_intervals(self, func):
-        """Return a EventData where the ContinuousData fulfills a boolean lambda function ('func').
+        """
+        Return a EventData where the ContinuousData fulfills a boolean lambda function ('func').
         The function will be applied separately to each row of ContinuousData.samples.
         
-        Arguments:
-            func (lambda function) - functions that takes n arguments as inputs, where n is the number of
-                                     columns in ContinuousData.samples, and returns True or False.
+        Arguments
+        ---------
+        func : lambda function
+            functions that takes n arguments as inputs, where n is the number of
+            columns in ContinuousData.samples, and returns True or False.
         
-        Returns:
-            An EventData object, where each event interval corresponds to a time period over which
-            the lambda function returns True.
+        Returns
+        -------
+        intervals_where_true : EventData
+            Each event corresponds to a time period in which the function returns True.
         """
         if self.samples.shape[0] == 0:
             return EventData(event_intervals=TimeIntervals(),
@@ -397,7 +435,20 @@ class EventData(TimeBasedData):
     
     
     def time_query(self, query):
-        '''Return EventData with events and valid intervals available during the requested query.'''
+        '''
+        Return EventData with events and valid intervals available during the requested query.
+        
+        Arguments
+        ---------
+        query : EventData, TimeIntervals
+            Time intervals to select from the EventData.
+        
+        Returns
+        -------
+        query_result : EventData
+            New EventData object with events and valid_intervals corresponding to the intersection
+            of the original EventData and the query intervals.
+        '''
         
         # Find the resulting event_intervals and valid_intervals
         if isinstance(query, EventData):
