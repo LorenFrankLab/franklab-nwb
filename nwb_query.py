@@ -179,30 +179,26 @@ class PointData(TimeBasedData):
         if continuous_data.samples.ndim > 1 and not (interpolation == 'nearest' or interpolation == 'linear'):
             raise NotImplementedError("For data > 1-D, only 'nearest' and 'linear' interpolation are currently suppported")
         
-        # get the numpy array for the continuous data samples
-        if continuous_data._uses_pandas:
-            cont_samples = continuous_data.samples.values
-        else:
-            cont_samples = continuous_data.samples
-
+        
         # Make an interpolation function using the continuous data and sample_times, which we will use to
-        # evaluate the ContinuousData at the point_times of this PointData
+        # evaluate the ContinuousData at the point_times of this PointData. Note that while the interpolator will
+        # accept a Pandas DataFrame as input, it will not build a function from sample_time -> DataFrame. Rather
+        # it will build a function from sample_times -> numpy array. So we will use numpy arrays for the interpolator,
+        # and then convert back to pandas after calling it.
         interpolator = interp1d(x=continuous_data.sample_times, 
-                                y=cont_samples, 
+                                y=continuous_data.samples.values,
                                 kind=interpolation, 
                                 axis=0)
         
-        mark_shape = cont_samples.shape[1:] # 1 row per time point, but mark data can be multi-d
+        mark_shape = continuous_data.samples.shape[1:] # 1 row per time point, but mark data can be multi-d
         
         if merge_valid_intervals:
             # timequery on pp: intersects valid_intervals and discards point_times outside overlapping region
             result_pp = self.time_query(continuous_data.valid_intervals)
             # don't need to worry about time points outside of the continuous data, b/c we have already filtered point_times
             result_marks = interpolator(result_pp.point_times)
-            # convert back to pandas if necessary
-            if continuous_data._uses_pandas:
-                result_marks = pd.DataFrame(data=result_marks, columns=continuous_data.samples.columns)
-            result_pp.marks = result_marks
+            # convert back to pandas (see comment when building the interpolator)
+            result_pp.marks = pd.DataFrame(data=result_marks, columns=continuous_data.samples.columns)
             return result_pp
         else:
             result_marks = []
@@ -210,11 +206,11 @@ class PointData(TimeBasedData):
                 if t in continuous_data.valid_intervals:
                     result_marks.append(interpolator(t)) 
                 else:
-                    result_marks.append(np.full(mark_shape, None))  # set mark to None if the time point occurs outside the continuous data
+                     # set mark to None if the time point occurs outside the continuous data
+                    result_marks.append(np.full(mark_shape, None)) 
             result_marks = np.concatenate(result_marks, axis=0)
-            # convert back to pandas if necessary
-            if continuous_data._uses_pandas:
-                result_marks = pd.DataFrame(data=result_marks, columns=continuous_data.samples.columns)
+            # convert back to pandas (see comment when building interpolator)
+            result_marks = pd.DataFrame(data=result_marks, columns=continuous_data.samples.columns)
             return PointData(self.point_times, self.valid_intervals, marks=result_marks)
 
 
@@ -224,19 +220,21 @@ class ContinuousData(TimeBasedData):
     '''        
     def __init__(self, samples, sample_times, valid_intervals=None, find_gaps=False):
         if not valid_intervals and find_gaps:
+            # find the valid_intervals from gaps in the data (WARNING: UNTESTED)
             self.valid_intervals = self.__find_valid_intervals(self.sample_times)
         elif not valid_intervals:
+            # use first and last sample as the valid_intervals
             sample_times_range = np.array([[sample_times[0], sample_times[-1]]])
             self.valid_intervals = TimeIntervals(sample_times_range)
         else:
             self.valid_intervals = valid_intervals
+        
+        if not isinstance(samples, pd.core.frame.DataFrame):
+            raise TypeError("'Samples' must be a Pandas DataFrame.")
+            
         self.samples = samples
         self.sample_times = sample_times
         
-        if isinstance(self.samples, pd.core.frame.DataFrame):
-            self._uses_pandas = True
-        else:
-            self._uses_pandas = False
         
     
     def __find_valid_intervals(self, sample_times, gap_threshold_samps=1.5):
@@ -291,51 +289,32 @@ class ContinuousData(TimeBasedData):
         result_lower_index = np.searchsorted(self.sample_times, result_lower_bounds, side='left')
         result_upper_index = np.searchsorted(self.sample_times, result_upper_bounds, side='right')
 
-        # TODO: speedup by initializing output arrays (use index to compute size)
-        result_samples = []
+        # loop over valid interval start/stop indices, getting the valid samples and sample_times
         result_sample_times = []
+        result_samples = pd.DataFrame(columns=self.samples.columns)       
         for idx_lower, idx_upper in zip(result_lower_index, result_upper_index):
+            # append an array of times for this valid interval (we will concatenate them later)
             result_sample_times.append(self.sample_times[idx_lower:idx_upper])
-            # use correct index-slicing syntax for pandas or numpy
-            if self._uses_pandas:
-                result_samples.append(self.samples.iloc[idx_lower:idx_upper, :].values)
-            else:
-                result_samples.append(self.samples[idx_lower:idx_upper, :])
-        result_samples = np.concatenate(result_samples)
-        
-        # if samples were originally a pandas dataframe, return it to that form
-        if self._uses_pandas:
-            result_samples = pd.DataFrame(data=result_samples,
-                                          columns=self.samples.columns)
+            # concatenate samples for the next valid interval to the result_samples DataFrame
+            samples_next_valid_interval = self.samples.iloc[idx_lower:idx_upper, :]
+            result_samples = pd.concat([result_samples, samples_next_valid_interval], ignore_index=True)
+        result_sample_times = np.concatenate(result_sample_times) # concatenate all the sample times 
         
         return ContinuousData(samples=result_samples,
-                              sample_times=np.concatenate(result_sample_times),
+                              sample_times=result_sample_times,
                               valid_intervals=result_valid_intervals)
     
     
-    def filter_intervals(self, func, domain_cols=False):
-        """Return a EventData where the ContinuousData fulfills a boolean lambda function ('func').
-        
-        By default, 'func' should accept all columns of ContinuousData.samples as input.
-        Otherwise, provide a list of the column indices that should be used.
+    def filter_intervals(self, func):
+        """Return a EventData where the ContinuousData fulfills a boolean lambda function ('func'),.
+        which will be applied to each row of ContinuousData.samples.
         """
         if self.samples.shape[0] == 0:
             return EventData(event_intervals=TimeIntervals(),
                              valid_intervals=self.valid_intervals)
                                  
-        # apply the function to the correct columns of the samples
-        if domain_cols:
-            assert max(domain_cols) < self.samples.shape[1]
-            # use correct index-slicing syntax for pandas or numpy
-            if self._uses_pandas:
-                func_of_data = func(self.samples.iloc[:, domain_cols].values)
-            else:
-                func_of_data = func(self.samples[:, domain_cols])
-        else:
-            if self._uses_pandas:
-                func_of_data = func(self.samples.values)
-            else:
-                func_of_data = func(self.samples)
+        # apply the function to each row of the samples
+        func_of_data = np.array([func(*row) for row in self.samples.values])
         
         # Get the up/down crossing indices, i.e. the first/last elements in each interval that fulfill 'func'
         assert func_of_data.dtype == 'bool'
