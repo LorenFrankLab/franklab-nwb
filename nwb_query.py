@@ -8,6 +8,7 @@ import intervals as iv  # backend for TimeIntervals
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as mticker
+import matplotlib.patches as patches
 from math import floor
 
 
@@ -500,3 +501,51 @@ def fmt_truncate_posix (x, pos):
 
     else:
         return "\u2026" + remainder_str
+
+    
+def plot_ContinuousData(ContinuousData, ypos=1, axis=None, interval_pad_factor=1.1, ivl_color='b'):
+    '''Plot Continuous Data and their enclosing intervals'''
+    '''Interval_pad_factor--height of the interval box, as a multiple of data range'''
+
+    valid_ivl_arr = ContinuousData.valid_intervals.to_array().T
+    
+    if not axis:
+        axis = plt.axes()
+    
+    datarange = [ContinuousData.samples.values.min(),  ContinuousData.samples.values.max()]
+    ivl_pad = np.diff(datarange) * (interval_pad_factor-1) / 2 
+    ivl_y = [datarange[0] - ivl_pad, datarange[1] + ivl_pad]
+    
+    ivl_h = []
+    data_h = []
+    for ivl in ContinuousData.valid_intervals:
+
+        axis.set_prop_cycle(None) # reset line color cycle etc
+
+        ivl_h.append(
+            axis.add_patch(patches.Rectangle((ivl[0], ivl_y[0]),
+                                         ivl[1] - ivl[0],
+                                         ivl_y[1] - ivl_y[0],
+                                         fill=True,
+                                         color=ivl_color,
+                                         alpha=0.1)))
+        
+        ivl_data_idx = [np.searchsorted(ContinuousData.sample_times, ivl[0], 'left'),
+                        np.searchsorted(ContinuousData.sample_times, ivl[1], 'right')]
+        data_h.append(
+            axis.plot(ContinuousData.sample_times[ivl_data_idx[0]:ivl_data_idx[1]], 
+                      ContinuousData.samples.iloc[ivl_data_idx[0]:ivl_data_idx[1], :]))
+
+    axis.legend(ContinuousData.samples.columns)
+
+    xtick_locator = mticker.AutoLocator()
+    xtick_formatter = mticker.FuncFormatter(fmt_truncate_posix)
+
+    axis.xaxis.set_major_locator(xtick_locator)
+    axis.xaxis.set_major_formatter(xtick_formatter)
+
+    axis.set_xlabel('Time (s)')
+
+
+    return ivl_h, data_h
+
