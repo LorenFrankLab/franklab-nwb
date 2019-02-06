@@ -304,6 +304,23 @@ class ContinuousData(TimeBasedData):
                               sample_times=result_sample_times,
                               valid_intervals=result_valid_intervals)
     
+    def data_query(self, query_columns):
+        """Return a new ContinuousData with samples only including the specified columns.
+        
+        query_columns (array_like) - list of columns to select from the samples
+        """
+        if not (isinstance(query_columns, list) or isinstance(query_columns, np.ndarray)):
+            raise TypeError("'query_columns' must be a list or numpy array of column names")
+        for col in query_columns:
+            if not isinstance(col, str):
+                raise TypeError("All column names in 'query_columns' must be strings.")
+            if col not in self.samples.columns:
+                raise ValueError("{} not in the ContinuousData samples.".format(col))
+                        
+        return ContinuousData(samples=self.samples[query_columns],
+                              sample_times=self.sample_times,
+                              valid_intervals=self.valid_intervals)
+        
     
     def filter_intervals(self, func):
         """Return a EventData where the ContinuousData fulfills a boolean lambda function ('func'),.
