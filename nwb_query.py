@@ -240,7 +240,7 @@ class ContinuousData(TimeBasedData):
     def __find_valid_intervals(self, sample_times, gap_threshold_samps=1.5):
         """Optionally build valid_intervals from any gaps in the data.
         
-        This is currently not tested.
+        WARNING: This is currently not tested.
         """
         import warnings
         warnings.warn("Deducing valid_interval is currently untested, may be bogus.")        
@@ -266,11 +266,15 @@ class ContinuousData(TimeBasedData):
             
 
     def time_query(self, query):
-        """Return ContinuousData in the specified time_intervals.
+        """Return ContinuousData in the specified time_intervals. 
         
-        The resulting valid_intervals is the intersection of the valid_intervals of this ContinuousData and
-        the provided. time_intevals. The resulting samples and sample_times are those occurring in the 
-        resulting valid_intervals.
+        Arguments:
+            query (EventData or TimeIntervals) - time intervals to select from the ContinousData
+        
+        Returns:
+            A new ContinuousData object, where the resulting valid_intervals are the 
+            intersection of the valid_intervals of this ContinuousData and the provided time_intevals. 
+            The resulting samples and sample_times are those occurring in the resulting valid_intervals.
         """        
         
         # Constrain the resulting valid_intervals to where the data have support (i.e. intersect with selection intervals)
@@ -307,7 +311,12 @@ class ContinuousData(TimeBasedData):
     def data_query(self, query_columns):
         """Return a new ContinuousData with samples only including the specified columns.
         
-        query_columns (array_like) - list of columns to select from the samples
+        Arguments:
+            query_columns (array_like) - list of column names (str) to select from the samples
+            
+        Returns:
+            A new ContinuousData object with the same sample_times and valid_intervals, but where 
+            samples contains only the columns in query_columns.
         """
         if not (isinstance(query_columns, list) or isinstance(query_columns, np.ndarray)):
             raise TypeError("'query_columns' must be a list or numpy array of column names")
@@ -323,8 +332,16 @@ class ContinuousData(TimeBasedData):
         
     
     def filter_intervals(self, func):
-        """Return a EventData where the ContinuousData fulfills a boolean lambda function ('func'),.
-        which will be applied to each row of ContinuousData.samples.
+        """Return a EventData where the ContinuousData fulfills a boolean lambda function ('func').
+        The function will be applied separately to each row of ContinuousData.samples.
+        
+        Arguments:
+            func (lambda function) - functions that takes n arguments as inputs, where n is the number of
+                                     columns in ContinuousData.samples, and returns True or False.
+        
+        Returns:
+            An EventData object, where each event interval corresponds to a time period over which
+            the lambda function returns True.
         """
         if self.samples.shape[0] == 0:
             return EventData(event_intervals=TimeIntervals(),
