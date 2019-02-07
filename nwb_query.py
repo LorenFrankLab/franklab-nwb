@@ -602,7 +602,7 @@ def plot_ContinuousData(ContinuousData, axis=None, interval_pad_factor=1.1, ivl_
             axis.plot(ContinuousData.sample_times[ivl_data_idx[0]:ivl_data_idx[1]], 
                       ContinuousData.samples.iloc[ivl_data_idx[0]:ivl_data_idx[1], :]))
 
-    axis.legend(ContinuousData.samples.columns)
+    axis.legend(ContinuousData.samples.columns, loc=2)
     _format_xaxis_posixtime(axis)
     return ivl_h, data_h
 
