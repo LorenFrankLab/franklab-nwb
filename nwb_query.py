@@ -460,13 +460,15 @@ def plot_PointData(PointData, ypos=1, axis=None, interval_height=25, tick_height
     
     if not axis:
         axis = plt.axes()
-    
+
+    # TODO: use plot_TimeIntervals
     ivl_h = axis.plot(valid_ivl_arr, np.full(valid_ivl_arr.shape, ypos),
                      color=color,
                      linewidth=interval_height,
                      marker='',
                      alpha=0.1,
                      solid_capstyle='butt')
+
     points_h = axis.plot(PointData.point_times, np.full(PointData.point_times.shape, ypos),
                        color=color,
                        marker='|', 
@@ -503,33 +505,33 @@ def fmt_truncate_posix (x, pos):
         return "\u2026" + remainder_str
 
     
-def plot_ContinuousData(ContinuousData, ypos=1, axis=None, interval_pad_factor=1.1, ivl_color='b'):
+def plot_ContinuousData(ContinuousData, axis=None, interval_pad_factor=1.1, ivl_color='b'):
     '''Plot Continuous Data and their enclosing intervals'''
     '''Interval_pad_factor--height of the interval box, as a multiple of data range'''
 
-    valid_ivl_arr = ContinuousData.valid_intervals.to_array().T
-    
     if not axis:
         axis = plt.axes()
     
     datarange = [ContinuousData.samples.values.min(),  ContinuousData.samples.values.max()]
-    ivl_pad = np.diff(datarange) * (interval_pad_factor-1) / 2 
+    ivl_pad = np.diff(datarange) * (interval_pad_factor-1) / 2
     ivl_y = [datarange[0] - ivl_pad, datarange[1] + ivl_pad]
     
-    ivl_h = []
+    ivl_h = plot_TimeIntervals(ContinuousData.valid_intervals, ivl_y, axis=axis)
+    
     data_h = []
+    
+#     # TODO: insert NaN's between Intervals then plot as a single line 
+#     #(better for line format, legends, handles, etc)
+  
+#     # Plot discontinuous lines by inserting points where x=NaN, y=NaN between intervals
+#     ivl_end_times = ContinuousData.valid_intervals.to_array()[:,1]
+#     ivl_end_index = ContinuousData.sample_times.searchsorted(ivl_end_times, 'left')
+#     sample_times_nan_split = np.insert(ContinuousData.sample_times, ivl_end_index, np.nan, axis=0)
+#     samples_nan_split = np.insert(ContinuousData.samples, ivl_end_index, np.nan, axis=0)
+#     ivl_h = axis.plot(sample_times_nan_split, samples_nan_split)
+    
     for ivl in ContinuousData.valid_intervals:
-
         axis.set_prop_cycle(None) # reset line color cycle etc
-
-        ivl_h.append(
-            axis.add_patch(patches.Rectangle((ivl[0], ivl_y[0]),
-                                         ivl[1] - ivl[0],
-                                         ivl_y[1] - ivl_y[0],
-                                         fill=True,
-                                         color=ivl_color,
-                                         alpha=0.1)))
-        
         ivl_data_idx = [np.searchsorted(ContinuousData.sample_times, ivl[0], 'left'),
                         np.searchsorted(ContinuousData.sample_times, ivl[1], 'right')]
         data_h.append(
@@ -537,15 +539,47 @@ def plot_ContinuousData(ContinuousData, ypos=1, axis=None, interval_pad_factor=1
                       ContinuousData.samples.iloc[ivl_data_idx[0]:ivl_data_idx[1], :]))
 
     axis.legend(ContinuousData.samples.columns)
+    _format_xaxis_posixtime(axis)
+    return ivl_h, data_h
+
+
+def plot_TimeIntervals(TimeIntervals, ivl_y, axis=None, color='b'):
+
+    if not axis:
+        axis = plt.axes()
+
+    ivl_h = []
+    for ivl in TimeIntervals:
+        ivl_h.append(
+            axis.add_patch(patches.Rectangle((ivl[0], ivl_y[0]),
+                                         ivl[1] - ivl[0],
+                                         ivl_y[1] - ivl_y[0],
+                                         fill=True,
+                                         color=color,
+                                         alpha=0.1)))
+    _format_xaxis_posixtime(axis)
+    return ivl_h
+
+def plot_EventData(EventData, ypos=1, axis=None, valid_color='b', color='k'):
+
+    if not axis:
+        axis = plt.axes()
+    
+    ivl_h = []
+    ivl_h.append(plot_TimeIntervals(EventData.valid_intervals, axis=axis, ivl_y=(ypos-0.5, ypos+0.5), color=valid_color))
+    ivl_h.append(plot_TimeIntervals(EventData.event_intervals, axis=axis, ivl_y=(ypos-0.25, ypos+0.25), color=color))
+
+    axis.axis('tight')
+    _format_xaxis_posixtime(axis)
+    return ivl_h
+    
+def _format_xaxis_posixtime(axis):
 
     xtick_locator = mticker.AutoLocator()
     xtick_formatter = mticker.FuncFormatter(fmt_truncate_posix)
 
     axis.xaxis.set_major_locator(xtick_locator)
     axis.xaxis.set_major_formatter(xtick_formatter)
-
     axis.set_xlabel('Time (s)')
 
-
-    return ivl_h, data_h
 
