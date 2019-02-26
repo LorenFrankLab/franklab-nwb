@@ -1,75 +1,52 @@
+datasets:
+- neurodata_type_def: FL_Coords
+  doc: 2D spatial coords (x/y)
+  dtype: float
+  dims:
+  - num_coords
+  - xy_vals
+  shape:
+  - None
+  - 2
+- neurodata_type_def: FL_PolygonCoords
+  neurodata_type_inc: FL_Coords
+  doc: 2D spatial coords (x/y) of the vertices of a polygon
 groups:
-- neurodata_type_def: FL_BehavioralTask
+- neurodata_type_def: FL_ApparatusNode
   neurodata_type_inc: NWBContainer
-  name: FL_BehavioralTask
-  doc: Container of objects for describing a behavioral task
-  groups:
-  - neurodata_type_def: FL_BehavioralWorld
-    neurodata_type_inc: NWBContainer
-    name: world
-    doc: Collection of geometries (1D, 2D, or 3D) describing the behavioral environment
-  - neurodata_type_def: FL_BehavioralGraph
-    neurodata_type_inc: NWBContainer
-    name: graph
-    doc: Graph describing non-overlapping behavioral states
-- neurodata_type_def: FL_BehavioralEvents
-  neurodata_type_inc: DynamicTable
-  name: events
-  doc: DynamicTable of describing possibly-overlapping behavioral/experimental events
-- neurodata_type_def: FL_BehavioralGraphPath
-  neurodata_type_inc: BehavioralTimeSeries
-  name: graph_path
-  doc: Non-overlapping path through a FL_BehavioralGraph
-- neurodata_type_def: FL_BehavioralEpochs
-  neurodata_type_inc: DynamicTable
-  name: FL_BehavioralEpochs
-  doc: DynamicTable for describing behavioral epochs
+  doc: Element of an FL_Apparatus (e.g. Point, Segment, or Area)
+- neurodata_type_def: FL_PointNode
+  neurodata_type_inc: FL_ApparatusNode
+  doc: Point element of an FL_Apparatus. (e.g. well, choice point)
+  datasets: 
+  - neurodata_type_inc: FL_Coords
+    name: coords
+    doc: xy spatial coordinate of this FL_PointNode
+    quantity: 1
+- neurodata_type_def: FL_SegmentNode
+  neurodata_type_inc: FL_ApparatusNode
+  doc: Segment element of an FL_Apparatus (e.g. linearized track segment). Must have a
+       start and stop point. Optional intermediate coordinates in between the start and
+       stop points.
   datasets:
-  - neurodata_type_inc: VectorData
-    name: epoch_name
-    dtype: text
-    doc: Name for this epoch
+  - neurodata_type_inc: FL_Coords
+    name: coords
+    doc: coords (x/y) of the start and stop points of this FL_SegmentNode
+    quantity: 1
+  - neurodata_type_inc: FL_Coords
+    name: intermediate_coords
+    doc: coords (x/y) of intermediate points in between the start and stop points
     quantity: '?'
-  - neurodata_type_inc: VectorData
-    name: position
-    dtype:
-      target_type: Position
-      reftype: object
-    doc: Animal spatial position during an epoch
+- neurodata_type_def: FL_AreaNode
+  neurodata_type_inc: FL_ApparatusNode
+  doc: 2D Area element of an FL_Apparatus (e.g. open field, sleep box)
+  datasets:
+  - neurodata_type_inc: FL_Coords
+    name: coords
+    doc: coords (x/y) of the control points of this FL_Area
+         (i.e. entry points, well locations)
+    quantity: 1
+  - neurodata_type_inc: FL_PolygonCoords
+    name: polygon
+    doc: Optional vertices of a polygon defining the geometry of this FL_Area
     quantity: '?'
-  - neurodata_type_inc: VectorData
-    name: speed
-    dtype:
-      target_type: BehavioralTimeSeries
-      reftype: object
-    doc: Animal speed during an epoch
-    quantity: '?'
-  - neurodata_type_inc: VectorData
-    name: head_dir
-    dtype:
-      target_type: CompassDirection
-      reftype: object
-    doc: Animal head direction during an epoch
-    quantity: '?'
-  - neurodata_type_inc: VectorData
-    name: task
-    dtype:
-      target_type: FL_BehavioralTask
-      reftype: object
-    doc: Task used in this epoch
-    quantity: '?'
-  - neurodata_type_inc: VectorData
-    name: events
-    dtype:
-      target_type: FL_BehavioralEvents
-      reftype: object
-    doc: Events occurring in this epoch
-    quantity: '?'
-  - neurodata_type_inc: VectorData
-    name: graph_path
-    dtype:
-      target_type: FL_BehavioralGraphPath
-      reftype: object
-    doc: Path through a BehavioralGraph in this epoch
-    quantity: '?'
-  quantity: '?'
