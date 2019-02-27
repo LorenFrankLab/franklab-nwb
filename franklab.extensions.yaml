@@ -6,15 +6,13 @@ datasets:
   - num_coords
   - xy_vals
   shape:
-  - None
+  - null
   - 2
-- neurodata_type_def: FL_PolygonCoords
-  neurodata_type_inc: FL_Coords
-  doc: 2D spatial coords (x/y) of the vertices of a polygon
 groups:
 - neurodata_type_def: FL_ApparatusNode
   neurodata_type_inc: NWBContainer
   doc: Element of an FL_Apparatus (e.g. Point, Segment, or Area)
+  quantity: '*'
 - neurodata_type_def: FL_PointNode
   neurodata_type_inc: FL_ApparatusNode
   doc: Point element of an FL_Apparatus. (e.g. well, choice point)
@@ -37,16 +35,41 @@ groups:
     name: intermediate_coords
     doc: coords (x/y) of intermediate points in between the start and stop points
     quantity: '?'
-- neurodata_type_def: FL_AreaNode
+- neurodata_type_def: FL_PolygonNode
   neurodata_type_inc: FL_ApparatusNode
-  doc: 2D Area element of an FL_Apparatus (e.g. open field, sleep box)
+  doc: 2D polygon element of an FL_Apparatus (e.g. open field, sleep box)
   datasets:
   - neurodata_type_inc: FL_Coords
     name: coords
-    doc: coords (x/y) of the control points of this FL_Area
-         (i.e. entry points, well locations)
+    doc: coords (x/y) that define the boundary and any control points along the edges of this FL_Area
+         (e.g. A square area with a door along the wall would be represented by five coords--one for each
+         vertex, and one for the door in the appropriate order. [v1, v2, door, v3, v4])
     quantity: 1
-  - neurodata_type_inc: FL_PolygonCoords
-    name: polygon
-    doc: Optional vertices of a polygon defining the geometry of this FL_Area
+  - neurodata_type_inc: FL_Coords
+    name: interior_coords
+    doc: Optional control points inside the boundary of this FL_Area (e.g. well locations in an open
+         field section of a track)
     quantity: '?'
+- neurodata_type_def: FL_ApparatusEdge
+  neurodata_type_inc: NWBContainer
+  doc: An undirected edge in an FL_ApparatusGraph
+  quantity: '*'
+  groups:
+  - neurodata_type_inc: FL_ApparatusNode
+    name: nodes
+    doc: the two nodes in the undirected edge
+    quantity: 2
+- neurodata_type_def: FL_ApparatusGraph
+  neurodata_type_inc: NWBContainer
+  doc: Represents connectivity between FL_ApparatusNodes (usually defined as reachability of one
+       node to another via animal behavior)
+  groups:
+  - neurodata_type_inc: FL_ApparatusNode
+    name: nodes
+    doc: Nodes in this FL_ApparatusGraph
+    quanity: '?'
+  - neurodata_type_inc: FL_ApparatusEdge
+    name: edges
+    doc: Edges between nodes in this FL_ApparatusGraph
+    quantity: '?'
+  
