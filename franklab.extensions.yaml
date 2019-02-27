@@ -20,7 +20,6 @@ groups:
   - neurodata_type_inc: FL_Coords
     name: coords
     doc: xy spatial coordinate of this FL_PointNode
-    quantity: 1
 - neurodata_type_def: FL_SegmentNode
   neurodata_type_inc: FL_ApparatusNode
   doc: Segment element of an FL_Apparatus (e.g. linearized track segment). Must have a
@@ -30,7 +29,6 @@ groups:
   - neurodata_type_inc: FL_Coords
     name: coords
     doc: coords (x/y) of the start and stop points of this FL_SegmentNode
-    quantity: 1
   - neurodata_type_inc: FL_Coords
     name: intermediate_coords
     doc: coords (x/y) of intermediate points in between the start and stop points
@@ -44,7 +42,7 @@ groups:
     doc: coords (x/y) that define the boundary and any control points along the edges of this FL_Area
          (e.g. A square area with a door along the wall would be represented by five coords--one for each
          vertex, and one for the door in the appropriate order. [v1, v2, door, v3, v4])
-    quantity: 1
+    quantity: '?'
   - neurodata_type_inc: FL_Coords
     name: interior_coords
     doc: Optional control points inside the boundary of this FL_Area (e.g. well locations in an open
@@ -58,7 +56,7 @@ groups:
   - neurodata_type_inc: FL_ApparatusNode
     name: nodes
     doc: the two nodes in the undirected edge
-    quantity: 2
+    quantity: '?'
 - neurodata_type_def: FL_ApparatusGraph
   neurodata_type_inc: NWBContainer
   doc: Represents connectivity between FL_ApparatusNodes (usually defined as reachability of one
