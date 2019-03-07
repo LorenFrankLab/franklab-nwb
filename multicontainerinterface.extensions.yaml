@@ -1,0 +1,21 @@
+groups:
+- neurodata_type_def: Node
+  neurodata_type_inc: NWBDataInterface
+  doc: node in apparatus
+- neurodata_type_def: ApparatusGraph
+  neurodata_type_inc: NWBDataInterface
+  name: apparatus_graph
+  doc: graph of apparatus
+  groups:
+  - neurodata_type_inc: Node
+    doc: node in apparatus
+    quantity: '*'
+- neurodata_type_def: SpecialNode
+  neurodata_type_inc: Node
+  doc: special node in apparatus
+  attributes:
+  - name: special
+    dtype: text
+    doc: why the node is special
+    value: just a very cool node
+  quantity: '*'
