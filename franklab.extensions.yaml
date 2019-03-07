@@ -1,13 +1,51 @@
 groups:
-- neurodata_type_def: FL_ApparatusNode
+- neurodata_type_def: FL_ApparatusGraph
   neurodata_type_inc: NWBDataInterface
-  doc: Element of an FL_Apparatus (e.g. Point, Segment, or Area)
+  doc: Represents connectivity between FL_ApparatusNodes (usually defined as reachability of one
+       node to another via animal behavior)
+  attributes:
+  - name: help
+    doc: help
+    dtype: text
+    value: 'help for FL_ApparatusGraph'
+  groups:
+  - neurodata_type_def: Node
+    neurodata_type_inc: NWBContainer
+    doc: Nodes in this FL_ApparatusGraph
+    quantity: '*'
+    attributes:
+      - name: help
+        doc: help
+        dtype: text
+        value: 'help for Node'
+    datasets:
+    - name: coords
+      dtype: float
+      doc: coords for this node
+  - neurodata_type_def: Edge
+    neurodata_type_inc: NWBContainer
+    doc: Undirected edges between nodes in this FL_ApparatusGraph
+    quantity: '*'
+    attributes:
+      - name: help
+        doc: help
+        dtype: text
+        value: 'help for Edge'
+    datasets:
+    - name: edge_nodes
+      dtype: text
+      doc: the two nodes in an undirected edge
+      dims:
+      - first_node|second_node
+      shape:
+      - 2
 - neurodata_type_def: FL_PointNode
-  neurodata_type_inc: FL_ApparatusNode
+  neurodata_type_inc: Node
   doc: Point element of an FL_Apparatus. (e.g. well, choice point)
   datasets: 
   - name: coords
     doc: xy spatial coordinate of this FL_PointNode
+    dtype: float
     dim:
     - num_coords
     - x_vals|y_vals
@@ -15,14 +53,14 @@ groups:
     - 1
     - 2
 - neurodata_type_def: FL_SegmentNode
-  neurodata_type_inc: FL_ApparatusNode
+  neurodata_type_inc: Node
   doc: Segment element of an FL_Apparatus (e.g. linearized track segment). Must have a
        start and stop point. Optional intermediate coordinates in between the start and
        stop points.
-  quantity: '*'
   datasets:
   - name: coords
     doc: xy spatial coordinate of this FL_SegmentNode
+    dtype: float
     dim:
     - num_coords
     - x_vals|y_vals
@@ -32,6 +70,7 @@ groups:
   - name: intermediate_coords
     doc: xy spatial coordinate of intermediate points in between the start and stop points
          of this FL_SegmentNode
+    dtype: float
     dim:
     - num_coords
     - x_vals|y_vals
@@ -40,13 +79,14 @@ groups:
     - 2
     quantity: '?'
 - neurodata_type_def: FL_PolygonNode
-  neurodata_type_inc: FL_ApparatusNode
+  neurodata_type_inc: Node
   doc: 2D polygon element of an FL_Apparatus (e.g. open field, sleep box)
   datasets:
   - name: coords
     doc: coords (x/y) that define the boundary and any control points along the edges of this FL_Area
          (e.g. A square area with a door along the wall would be represented by five coords--one for each
          vertex, and one for the door in the appropriate order. [v1, v2, door, v3, v4])
+    dtype: float
     dim:
     - num_coords
     - x_vals|y_vals
@@ -56,6 +96,7 @@ groups:
   - name: interior_coords
     doc: Optional control points inside the boundary of this FL_Area (e.g. well locations in an open
          field section of a track)
+    dtype: float
     dim:
     - num_coords
     - x_vals|y_vals
@@ -63,26 +104,3 @@ groups:
     - null
     - 2
     quantity: '?'
-- neurodata_type_def: FL_ApparatusEdge
-  neurodata_type_inc: NWBDataInterface
-  doc: An undirected edge in an FL_ApparatusGraph
-  quantity: '*'
-  datasets:
-  - name: nodes
-    dtype: text
-    doc: the two nodes in an undirected edge
-    dims:
-    - first_node|second_node
-    shape:
-    - 2
-- neurodata_type_def: FL_ApparatusGraph
-  neurodata_type_inc: NWBDataInterface
-  doc: Represents connectivity between FL_ApparatusNodes (usually defined as reachability of one
-       node to another via animal behavior)
-  groups:
-  - neurodata_type_inc: FL_ApparatusNode
-    doc: Nodes in this FL_ApparatusGraph
-    quantity: '*'
-  - neurodata_type_inc: FL_ApparatusEdge
-    doc: Edges between nodes in this FL_ApparatusGraph
-    quantity: '*'
