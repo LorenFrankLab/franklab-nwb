@@ -164,22 +164,16 @@ class Task(NWBDataInterface):
     
     Arguments:
         name (text): name of this task
-        description (text): detailed description of this task
-        apparatus (Apparatus): the apparatus on which this task was performed
-        
+        description (text): detailed description of this task        
     """
     
-    __nwbfields__ = ('name', 'description', 'apparatus')  
+    __nwbfields__ = ('name', 'description')  
     
     @docval({'name': 'name', 'type': str, 'doc': 'name of this task'},
-            {'name': 'description', 'type': str, 'doc': 'detailed description of this task'},
-            {'name': 'apparatus', 'type': Apparatus, 
-             'doc': 'link to the apparatus on which this task was performed'})
+            {'name': 'description', 'type': str, 'doc': 'detailed description of this task'})
     def __init__(self, **kwargs):
         super(Task, self).__init__(name=kwargs['name'])
-        self.description=kwargs['description']
-        self.apparatus = kwargs['apparatus']
-        
+        self.description=kwargs['description']        
   
 
 # ------------------------------------------------

@@ -42,7 +42,7 @@ groups:
     quantity: '*'
 - neurodata_type_def: Task
   neurodata_type_inc: NWBDataInterface
-  doc: a behavioral task executed on a particular apparatus
+  doc: a behavioral task
   attributes:
   - name: name
     dtype: text
@@ -54,10 +54,6 @@ groups:
     dtype: text
     doc: help doc
     value: help value
-  links:
-  - name: apparatus
-    doc: the apparatus on which this task was performed
-    target_type: Apparatus
 - neurodata_type_def: PointNode
   neurodata_type_inc: Node
   doc: node representing a point in 2D space
@@ -123,4 +119,5 @@ groups:
     dims:
     - num_coords
     - x_vals|y_vals
+    quantity: '?'
   quantity: '*'
