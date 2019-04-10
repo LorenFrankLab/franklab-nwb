@@ -96,3 +96,31 @@ groups:
     - num_coords
     - x_vals|y_vals
   quantity: '*'
+- neurodata_type_def: PolygonNode
+  neurodata_type_inc: Node
+  doc: node representing a 2D polygon area
+  attributes:
+  - name: help
+    dtype: text
+    doc: help doc
+    value: help value
+  datasets:
+  - name: coords
+    dtype: float
+    doc: x/y coordinates of the exterior points of this polygon
+    shape:
+    - 'null'
+    - 2
+    dims:
+    - num_coords
+    - x_vals|y_vals
+  - name: interior_coords
+    dtype: float
+    doc: x/y coordinates of interior points inside this polygon
+    shape:
+    - 'null'
+    - 2
+    dims:
+    - num_coords
+    - x_vals|y_vals
+  quantity: '*'
