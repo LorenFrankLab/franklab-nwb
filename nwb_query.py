@@ -647,3 +647,51 @@ def _format_xaxis_posixtime(axis):
     axis.set_xlabel('Time (s)')
 
 
+def point_to_line_dist(point, line):
+    """Return distance of point to line segment and the nearest projection point.
+
+    To calculate the closest distance to a line segment, we first need to check
+    if the point projects onto the line segment.  If it does, then we calculate
+    the orthogonal distance from the point to the line.
+    If the point does not project to the line segment, we calculate the 
+    distance to both endpoints and take the shortest distance.
+    """
+    # unit vector
+    unit_line = line[1] - line[0]
+    norm_unit_line = unit_line / np.linalg.norm(unit_line)
+
+    # compute the perpendicular distance to the theoretical infinite line
+    segment_dist = (
+        np.linalg.norm(np.cross(line[1] - line[0], line[0] - point)) /
+        np.linalg.norm(unit_line)
+    )
+
+    diff = (
+        (norm_unit_line[0] * (point[0] - line[0][0])) + 
+        (norm_unit_line[1] * (point[1] - line[0][1]))
+    )
+
+    x_seg = (norm_unit_line[0] * diff) + line[0][0]
+    y_seg = (norm_unit_line[1] * diff) + line[0][1]
+
+    d_end0 = np.linalg.norm(line[0] - point)
+    d_end1 = np.linalg.norm(line[1] - point)
+    if d_end0 < d_end1:
+        endpoint_dist = d_end0
+        end_proj = line[0]
+    else:
+        endpoint_dist = d_end1
+        end_proj = line[1]
+
+    # decide if the intersection point falls on the line segment
+    lp1_x = line[0][0]  # line point 1 x
+    lp1_y = line[0][1]  # line point 1 y
+    lp2_x = line[1][0]  # line point 2 x
+    lp2_y = line[1][1]  # line point 2 y
+    is_betw_x = lp1_x <= x_seg <= lp2_x or lp2_x <= x_seg <= lp1_x
+    is_betw_y = lp1_y <= y_seg <= lp2_y or lp2_y <= y_seg <= lp1_y
+    if is_betw_x and is_betw_y:
+        return segment_dist, (x_seg, y_seg)
+    else:
+        # if not, then return the minimum distance to the segment endpoints
+        return endpoint_dist, end_proj

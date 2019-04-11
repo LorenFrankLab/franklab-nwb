@@ -281,7 +281,7 @@ def add_fl_node_to_nx_graph(fl_node, nx_graph):
     return nx_graph
 
 
-def plot_nx_appar_geom(nx_graph, ax=None):
+def plot_nx_appar_geom(nx_graph, ax=None, label_nodes=True):
     if not ax:
         plt.figure()
         ax = plt.subplot(111)
@@ -289,16 +289,19 @@ def plot_nx_appar_geom(nx_graph, ax=None):
         if attrs['kind']=='point':
             coord = attrs['coords'][0]
             ax.scatter([coord[0]], [coord[1]], color='r')
-            ax.text(coord[0], coord[1], n)
+            if label_nodes:
+                ax.text(coord[0], coord[1], n, fontsize=12)
         elif attrs['kind']=='segment':
             start, end = attrs['coords']
             ax.plot([start[0], end[0]], [start[1], end[1]], color='k')
             if abs(start[0] - end[0]) > abs(start[1] - end[1]):
                 midx = (start[0] + end[0]) / 2
-                ax.text(midx, start[1], n)
+                if label_nodes:
+                    ax.text(midx, start[1], n, fontsize=12)
             else:
                 midy = (start[1] + end[1]) / 2
-                ax.text(start[0], midy, n)
+                if label_nodes:
+                    ax.text(start[0], midy, n, fontsize=12)
         elif attrs['kind']=='polygon':
             poly = attrs['coords']
             xs = [e[0] for e in poly]
@@ -316,3 +319,21 @@ def plot_nx_appar_topo(nx_graph, ax=None):
     ax.axes.get_xaxis().set_visible(False)
     ax.axes.get_yaxis().set_visible(False)
     nx.draw(H, with_labels=True)
+
+    
+def plot_fl_appar_geom(appar, ax=None, label_nodes=True):
+    if not ax:
+        plt.figure()
+        ax = plt.subplot(111)
+    # Plot apparatus geometry
+    if len(appar.nodes) > 0:
+        # First we have to build a Network X graph
+        H = nx.Graph(name='w-track test')
+        for n in appar.nodes.values():
+            add_fl_node_to_nx_graph(n, H)
+        for e in appar.edges.values():
+            n1, n2 = e.edge_nodes
+            H.add_edge(n1, n2)
+        # Then plot the Network X graph
+        plot_nx_appar_geom(H, ax, label_nodes=label_nodes)
+    return H
