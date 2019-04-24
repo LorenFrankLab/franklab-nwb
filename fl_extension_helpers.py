@@ -302,3 +302,27 @@ def parse_franklab_tetrodes(data_dir, animal, day):
     tets_dict = ns.loadmat_ff(tetinfo_filename, 'tetinfo')
     # only look at first epoch (1-indexed) because rest are duplicates
     return tets_dict[day][1] 
+
+
+def get_franklab_tet_location(tet):
+    # tet.area/.subarea are 1-d arrays of Unicode strings
+    # cast to str() because h5py barfs on numpy.str_ type objects?
+    # ---------
+    area = str(tet['area'][0]) if 'area' in tet else '?'
+    if 'sub_area' in tet: 
+        sub_area = str(tet['sub_area'][0])
+        location = area + ' ' + sub_area
+    else:
+        sub_area = '?'
+        location = area 
+    return location
+        
+        
+def get_franklab_tet_coord(tet):
+    # tet.depth is a 1x1 cell array in tetinfo struct for some reason (multiple depths?)
+    # (which contains the expected 1x1 numeric array)
+    if 'depth' in tet:
+        coord = [np.nan, np.nan, tet['depth'][0, 0][0, 0] / 12 / 80 * 25.4]
+    else:
+        coord = [np.nan, np.nan, np.nan]
+    return coord
