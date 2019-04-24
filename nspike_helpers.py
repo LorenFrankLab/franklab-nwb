@@ -147,3 +147,6 @@ def build_day_eeg(files_by_tetrode, samprate):
                 t = np.concatenate((t, eeg['starttime'] + (np.arange(0,len(eeg['data'])).reshape(-1,1) / samprate)))
                 d = np.concatenate((d, eeg['data']))
         return t, d
+
+    
+    

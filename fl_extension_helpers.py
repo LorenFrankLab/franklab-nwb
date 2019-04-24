@@ -1,5 +1,6 @@
 import numpy as np
 import networkx as nx
+import nspike_helpers as ns
 from fl_extension import *
 
 
@@ -104,6 +105,7 @@ def add_fl_node_to_nx_graph(fl_node, nx_graph):
     elif isinstance(fl_node, PolygonNode):
         nx_graph.add_node(fl_node.name, coords=fl_node.coords, interior_coords=fl_node.interior_coords, kind='polygon')
     else:
+        print(fl_node.__class__)
         raise TypeError("'fl_node' must be of type SegmentNode, PointNode, or PolygonNode")
     return nx_graph
 
@@ -164,3 +166,139 @@ def plot_fl_appar_geom(appar, ax=None, label_nodes=True):
         # Then plot the Network X graph
         plot_nx_appar_geom(H, ax, label_nodes=label_nodes)
     return H
+
+
+def parse_franklab_behavior_data(data_dir, animal, day):
+    behavior_files = ns.get_files_by_day(data_dir, animal.lower(), 'pos')
+    behavior_dict = ns.loadmat_ff(behavior_files[day], 'pos')
+    return behavior_dict[day]
+
+
+def parse_franklab_task_data(data_dir, animal, day):
+    task_files = ns.get_files_by_day(data_dir, animal.lower(), 'task')
+    task_dict = ns.loadmat_ff(task_files[day], 'task')
+    return task_dict[day]
+
+
+def get_sleepbox_nodes():    
+    # The vertices of the sleepbox are hardcoded here for demo purposes.
+    min_x, min_y = (0.6966000000000001, 0.64395)
+    max_x, max_y = (1.5957000000000003, 1.47015)
+    
+    # The sleepbox consists of a single PolygonNode
+    sleep_box_polygon_node = PolygonNode(name='Sleep box polygon', 
+                                   coords=[[min_x, min_y], 
+                                           [min_x, max_y], 
+                                           [max_x, max_y], 
+                                           [max_x, min_y]],
+                                   interior_coords=None)
+    
+    # Return as a list, as this is what the Apparatus constructor will expect
+    return [sleep_box_polygon_node]
+
+
+def get_wtrack_A_nodes():
+    # Track segments (coords are hard coded here for demo purposes)
+    segment1 = SegmentNode(name='segment1',
+                               coords=[[1.27202765, 1.10184211],
+                                       [0.62004608, 1.14605263]])
+    segment2 = SegmentNode(name='segment2',
+                               coords=[[0.62004608, 1.14605263],
+                                       [0.64990783, 1.47763158]])
+    segment3 = SegmentNode(name='segment3',
+                               coords=[[0.64990783, 1.47763158],
+                                       [1.30686636, 1.41868421]])
+    segment4 = SegmentNode(name='segment4',
+                               coords=[[0.62004608, 1.14605263],
+                                       [0.61258065, 0.81447368]])
+    segment5 = SegmentNode(name='segment5',
+                               coords=[[0.61258065, 0.81447368],
+                                       [1.21479263, 0.76657895]])
+    # Reward wells (coords are hard coded here for demo purposes)
+    well1 = PointNode(name='well1',
+                          coords=[[1.27202765, 1.10184211]])
+    well2 = PointNode(name='well2',
+                          coords=[[1.30686636, 1.41868421]])
+    well3 = PointNode(name='well3',
+                          coords=[[1.21479263, 0.76657895]])
+    
+    return [segment1, segment2, segment3, segment4, segment5, well1, well2, well3]
+    
+def get_wtrack_B_nodes():
+    # Track segments (coords are hard coded here for demo purposes)
+    segment1 = SegmentNode(name='segment1',
+                               coords=[[1.95884793, 1.25842105],
+                                       [1.91903226, 0.64578947]])
+    segment2 = SegmentNode(name='segment2',
+                               coords=[[1.91903226, 0.64578947],
+                                       [1.61792627, 0.66157895]])
+    segment3 = SegmentNode(name='segment3',
+                               coords=[[1.61792627, 0.66157895],
+                                       [1.64529954, 1.27421053]])
+    segment4 = SegmentNode(name='segment4',
+                           coords=[[1.91903226, 0.64578947],
+                                   [2.21267281, 0.63]])
+    segment5 = SegmentNode(name='segment5',
+                           coords=[[2.21267281, 0.63],
+                                   [2.25995392, 1.27105263]])
+    # Reward wells (coords are hard coded here for demo purposes)
+    well1 = PointNode(name='well1',
+                      coords=[[1.95884793, 1.25842105]])
+    well2 = PointNode(name='well2',
+                      coords=[[1.64529954, 1.27421053]])
+    well3 = PointNode(name='well3',
+                      coords=[[2.25995392, 1.27105263]])
+    
+    return [segment1, segment2, segment3, segment4, segment5, well1, well2, well3]
+
+
+def get_franklab_task(epoch_metadata, behav_mod): 
+    # Extract epoch 'type' from the parsed Matlab data
+    if 'type' in epoch_metadata.keys():
+        epoch_type = epoch_metadata['type'][0]
+    else:
+        epoch_type = 'NA'
+    # Return the appropriate Frank Lab Taks
+    if epoch_type == 'sleep':
+         return behav_mod.data_interfaces["Sleep"]
+    elif epoch_type == 'run':
+         return behav_mod.data_interfaces["W-Alternation"]
+    else:
+        raise RuntimeError("Epoch 'type' {} not supported.".format(epoch_type))  
+        
+def get_franklab_apparatus(epoch_metadata, behav_mod):
+    # Extract 'type' and 'environment' from the parsed Matlab data
+    if 'type' in epoch_metadata.keys():
+        epoch_type = epoch_metadata['type'][0]
+    else:
+        epoch_type = 'NA'
+    if 'environment' in epoch_metadata.keys():
+        epoch_env = epoch_metadata['environment'][0]
+    else:
+        epoch_env = 'NA'
+    # Get the Frank Lab Apparatus for this epoch
+    if epoch_type == 'sleep':
+        return behav_mod.data_interfaces['Sleep Box']
+    elif epoch_type == 'run':
+        # Which enviroment?
+        if epoch_env == 'TrackA':
+            return behav_mod.data_interfaces['W-track A']
+        elif epoch_env == 'TrackB':
+            return behav_mod.data_interfaces['W-track B']
+        else:
+            raise RuntimeError("Epoch 'environment' {} not supported.".format(epoch_env))
+        appar = behav_mod.data_interfaces[epoch_env]
+    else:
+        raise RuntimeError("Epoch 'type' {} not supported.".format(epoch_type))  
+        
+def get_exposure_num(epoch_metadata):
+    if 'exposure' in epoch_metadata.keys():
+        return epoch_metadata['exposure'][0][0]
+    else:
+        return 'NA'
+      
+def parse_franklab_tetrodes(data_dir, animal, day):
+    tetinfo_filename = "%s/%s%s" % (data_dir, animal.lower(), "tetinfo.mat")
+    tets_dict = ns.loadmat_ff(tetinfo_filename, 'tetinfo')
+    # only look at first epoch (1-indexed) because rest are duplicates
+    return tets_dict[day][1] 
