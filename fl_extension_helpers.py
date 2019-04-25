@@ -307,7 +307,6 @@ def parse_franklab_tetrodes(data_dir, animal, day):
 def get_franklab_tet_location(tet):
     # tet.area/.subarea are 1-d arrays of Unicode strings
     # cast to str() because h5py barfs on numpy.str_ type objects?
-    # ---------
     area = str(tet['area'][0]) if 'area' in tet else '?'
     if 'sub_area' in tet: 
         sub_area = str(tet['sub_area'][0])
@@ -326,3 +325,24 @@ def get_franklab_tet_coord(tet):
     else:
         coord = [np.nan, np.nan, np.nan]
     return coord
+
+
+def parse_franklab_spiking_data(data_dir, animal, day):
+    spike_files = ns.get_files_by_day(data_dir, animal.lower(), 'spikes')
+    spike_dict = ns.loadmat_ff(spike_files[day], 'spikes')
+    spike_struct = spike_dict[day]
+    # Matlab structs are nested by: day, epoch, tetrode, cluster, but we will want to save all spikes from a give cluster
+    # *across multiple epochs* in same spike list. So we rearrange the nested matlab structures for convenience. We 
+    # create a nested dict, keyed by 1) tetrode, 2) cluster number, then 3) epoch. NB the keys are 1-indexed, to be 
+    # consistent with the original data collection. We only process one day at a time for now, so no need to nest days.
+    cluster_by_tet = {}
+    for epoch_num, espikes in spike_struct.items():
+        for tet_num, tspikes in espikes.items():
+            if tet_num not in cluster_by_tet.keys():
+                cluster_by_tet[tet_num] = {}
+            for cluster_num, cspikes in tspikes.items():
+                if cluster_num not in cluster_by_tet[tet_num].keys():
+                    cluster_by_tet[tet_num][cluster_num] = {}
+                cluster_by_tet[tet_num][cluster_num][epoch_num] = cspikes
+    
+    return cluster_by_tet
