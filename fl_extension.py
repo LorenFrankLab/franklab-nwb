@@ -1,3 +1,24 @@
+# ------------------------------------------------
+#   FRANK LAB NWB EXTENSIONS -- PyNWB IMPLEMENTATIONS
+# ------------------------------------------------
+#
+#  The following Python classes implement the Frank Lab NWB extensions (franklab.extensions.yaml). 
+#  These extensions allow for representing behavioral tasks (e.g. W-alternation) and apparatuses 
+#  (e.g. tracks, boxes).
+#
+#  To use the Frank Lab extensions, all you have to do is import this module into 
+#  your Python script (e.g. import fl_extension as fle). 
+#
+#  If you are a member of the Frank Lab you might also want to import the helper 
+#  functions in fl_extension_helpers.py (e.g. import fl_extension_helpers as flh). 
+#  Take a look at the function docs in that file for more info. They can be useful 
+#  in parsing Filter Framework files and working with the extensions. Importing
+#  fl_extension_helpers.py will also import nspike_helpers.py. Check out that file
+#  for an idea of some other functions that might be helpful.
+# ------------------------------------------------
+
+
+
 from hdmf.utils import docval, getargs, popargs, call_docval_func
 from pynwb import register_class, load_namespaces
 from pynwb.file import MultiContainerInterface, NWBContainer, NWBDataInterface
@@ -7,15 +28,14 @@ from pynwb.file import MultiContainerInterface, NWBContainer, NWBDataInterface
 # Load the Frank Lab behavioral extensions
 # See 'create_franklab_spec.ipynb' for details on the generation of the spec file.
 # ------------------------------------------------
-ns_path = "franklab_apparatus.namespace.yaml"
+ns_path = "franklab.namespace.yaml"
 load_namespaces(ns_path)
-
 
 # ------------------------------------------------
 # Python classes implementing 'franklab_apparatus.extensions.yaml'
 # These classes are required to use the Frank Lab extensions with PyNWB.
 # ------------------------------------------------
-@register_class('Node', 'franklab_apparatus')
+@register_class('Node', 'franklab')
 class Node(NWBContainer):
     '''
     Purpose: 
@@ -31,7 +51,7 @@ class Node(NWBContainer):
     def __init__(self, **kwargs):
         super(Node, self).__init__(name=kwargs['name'])
         
-@register_class('Edge', 'franklab_apparatus')
+@register_class('Edge', 'franklab')
 class Edge(NWBContainer):
     '''
     Purpose: 
@@ -52,7 +72,7 @@ class Edge(NWBContainer):
         super(Edge, self).__init__(name=kwargs['name'])
         self.edge_nodes = kwargs['edge_nodes']
         
-@register_class('PointNode', 'franklab_apparatus')
+@register_class('PointNode', 'franklab')
 class PointNode(Node):
     '''
     Purpose: 
@@ -72,7 +92,7 @@ class PointNode(Node):
         super(PointNode, self).__init__(name=kwargs['name'])
         self.coords=kwargs['coords']
         
-@register_class('SegmentNode', 'franklab_apparatus')
+@register_class('SegmentNode', 'franklab')
 class SegmentNode(Node):
     '''
     Purpose: 
@@ -92,7 +112,7 @@ class SegmentNode(Node):
         super(SegmentNode, self).__init__(name=kwargs['name'])
         self.coords=kwargs['coords']
         
-@register_class('PolygonNode', 'franklab_apparatus')
+@register_class('PolygonNode', 'franklab')
 class PolygonNode(Node):
     '''
     Purpose: 
@@ -120,7 +140,7 @@ class PolygonNode(Node):
         self.interior_coords = kwargs['interior_coords']
  
 
-@register_class('Apparatus', 'franklab_apparatus')
+@register_class('Apparatus', 'franklab')
 class Apparatus(MultiContainerInterface):
     """
     Purpose:
@@ -152,7 +172,7 @@ class Apparatus(MultiContainerInterface):
     __help = 'info about an Apparatus'
     
 
-@register_class('Task', 'franklab_apparatus')
+@register_class('Task', 'franklab')
 class Task(NWBDataInterface):
     """
     Purpose:
