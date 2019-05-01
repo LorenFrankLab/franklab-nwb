@@ -662,7 +662,7 @@ def point_to_line_dist(point, line):
 
     # compute the perpendicular distance to the theoretical infinite line
     segment_dist = (
-        np.linalg.norm(np.cross(line[1] - line[0], line[0] - point)) /
+        np.linalg.norm(np.cross(unit_line, line[0] - point)) /
         np.linalg.norm(unit_line)
     )
 

@@ -1,5 +1,5 @@
 namespaces:
-- doc: Extension for use in the Frank Lab
+- doc: franklab extensions
   name: franklab
   schema:
   - namespace: core

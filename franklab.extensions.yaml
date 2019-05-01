@@ -1,106 +1,124 @@
 groups:
-- neurodata_type_def: FL_ApparatusGraph
+- neurodata_type_def: Apparatus
   neurodata_type_inc: NWBDataInterface
-  doc: Represents connectivity between FL_ApparatusNodes (usually defined as reachability of one
-       node to another via animal behavior)
+  doc: a graph of nodes and edges
   attributes:
-  - name: help
-    doc: help
+  - name: name
     dtype: text
-    value: 'help for FL_ApparatusGraph'
+    doc: the name of this apparatus
+  - name: help
+    dtype: text
+    doc: help doc
+    value: help value
   groups:
   - neurodata_type_def: Node
-    neurodata_type_inc: NWBContainer
-    doc: Nodes in this FL_ApparatusGraph
-    quantity: '*'
+    neurodata_type_inc: NWBDataInterface
+    doc: nodes in the graph
     attributes:
-      - name: help
-        doc: help
-        dtype: text
-        value: 'help for Node'
-    datasets:
-    - name: coords
-      dtype: float
-      doc: coords for this node
+    - name: name
+      dtype: text
+      doc: the name of this node
+    - name: help
+      dtype: text
+      doc: help doc
+      value: help value
+    quantity: '*'
   - neurodata_type_def: Edge
-    neurodata_type_inc: NWBContainer
-    doc: Undirected edges between nodes in this FL_ApparatusGraph
-    quantity: '*'
+    neurodata_type_inc: NWBDataInterface
+    doc: edges in the graph
     attributes:
-      - name: help
-        doc: help
-        dtype: text
-        value: 'help for Edge'
+    - name: help
+      dtype: text
+      doc: help doc
+      value: help value
     datasets:
     - name: edge_nodes
       dtype: text
-      doc: the two nodes in an undirected edge
-      dims:
-      - first_node|second_node
+      doc: names of the nodes this edge connects
       shape:
       - 2
-- neurodata_type_def: FL_PointNode
+      dims:
+      - first_node_name|second_node_name
+    quantity: '*'
+  quantity: '*'
+- neurodata_type_def: Task
+  neurodata_type_inc: NWBDataInterface
+  doc: a behavioral task
+  attributes:
+  - name: name
+    dtype: text
+    doc: the name of this task
+  - name: description
+    dtype: text
+    doc: description of this task
+  - name: help
+    dtype: text
+    doc: help doc
+    value: help value
+- neurodata_type_def: PointNode
   neurodata_type_inc: Node
-  doc: Point element of an FL_Apparatus. (e.g. well, choice point)
-  datasets: 
+  doc: node representing a point in 2D space
+  attributes:
+  - name: help
+    dtype: text
+    doc: help doc
+    value: help value
+  datasets:
   - name: coords
-    doc: xy spatial coordinate of this FL_PointNode
     dtype: float
-    dim:
-    - num_coords
-    - x_vals|y_vals
+    doc: x/y coordinate of this 2D point
     shape:
     - 1
     - 2
-- neurodata_type_def: FL_SegmentNode
+    dims:
+    - num_coords
+    - x_vals|y_vals
+  quantity: '*'
+- neurodata_type_def: SegmentNode
   neurodata_type_inc: Node
-  doc: Segment element of an FL_Apparatus (e.g. linearized track segment). Must have a
-       start and stop point. Optional intermediate coordinates in between the start and
-       stop points.
+  doc: node representing a 2D linear segment defined by its start and end points
+  attributes:
+  - name: help
+    dtype: text
+    doc: help doc
+    value: help value
   datasets:
   - name: coords
-    doc: xy spatial coordinate of this FL_SegmentNode
     dtype: float
-    dim:
-    - num_coords
-    - x_vals|y_vals
+    doc: x/y coordinates of the start and end points of this segment
     shape:
     - 2
     - 2
-  - name: intermediate_coords
-    doc: xy spatial coordinate of intermediate points in between the start and stop points
-         of this FL_SegmentNode
-    dtype: float
-    dim:
+    dims:
     - num_coords
     - x_vals|y_vals
-    shape:
-    - null
-    - 2
-    quantity: '?'
-- neurodata_type_def: FL_PolygonNode
+  quantity: '*'
+- neurodata_type_def: PolygonNode
   neurodata_type_inc: Node
-  doc: 2D polygon element of an FL_Apparatus (e.g. open field, sleep box)
+  doc: node representing a 2D polygon area
+  attributes:
+  - name: help
+    dtype: text
+    doc: help doc
+    value: help value
   datasets:
   - name: coords
-    doc: coords (x/y) that define the boundary and any control points along the edges of this FL_Area
-         (e.g. A square area with a door along the wall would be represented by five coords--one for each
-         vertex, and one for the door in the appropriate order. [v1, v2, door, v3, v4])
     dtype: float
-    dim:
+    doc: x/y coordinates of the exterior points of this polygon
+    shape:
+    - 'null'
+    - 2
+    dims:
     - num_coords
     - x_vals|y_vals
-    shape:
-    - null
-    - 2
   - name: interior_coords
-    doc: Optional control points inside the boundary of this FL_Area (e.g. well locations in an open
-         field section of a track)
     dtype: float
-    dim:
+    doc: x/y coordinates of interior points inside this polygon
+    shape:
+    - 'null'
+    - 2
+    dims:
     - num_coords
     - x_vals|y_vals
-    shape:
-    - null
-    - 2
     quantity: '?'
+  quantity: '*'
