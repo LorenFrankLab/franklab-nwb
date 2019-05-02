@@ -245,15 +245,18 @@ class ContinuousData(TimeBasedData):
     Represent continuously-sampled numerical data, observed over some time intervals.
     '''        
     def __init__(self, samples, sample_times, valid_intervals=None, find_gaps=False):
-        if not valid_intervals and find_gaps:
+        if valid_intervals is None and find_gaps:
             # find the valid_intervals from gaps in the data (WARNING: UNTESTED)
             self.valid_intervals = self.__find_valid_intervals(self.sample_times)
-        elif not valid_intervals:
+        elif valid_intervals is None:
             # use first and last sample as the valid_intervals
             sample_times_range = np.array([[sample_times[0], sample_times[-1]]])
             self.valid_intervals = TimeIntervals(sample_times_range)
         else:
-            self.valid_intervals = valid_intervals
+            if not isinstance(valid_intervals, TimeIntervals):
+                self.valid_intervals = TimeIntervals(valid_intervals)
+            else:
+                self.valid_intervals = valid_intervals
         
         if not isinstance(samples, pd.core.frame.DataFrame):
             raise TypeError("'Samples' must be a Pandas DataFrame.")
@@ -312,8 +315,10 @@ class ContinuousData(TimeBasedData):
             result_valid_intervals = self.valid_intervals & query.event_intervals
         elif isinstance(query, TimeIntervals):
             result_valid_intervals = self.valid_intervals & query
+        elif isinstance(query, np.ndarray):
+            result_valid_intervals = self.valid_intervals & TimeIntervals(query)
         else:
-            raise TypeError("'query' must be of type nwb_query.EventData or nwb_query.TimeIntervals")
+            raise TypeError("'query' must be of type nwb_query.EventData, nwb_query.TimeIntervals, or numpy.ndarray")
         
         # Get index into samples and sample_times of interval starts/ends
         result_bounds = result_valid_intervals.to_array()
@@ -333,7 +338,6 @@ class ContinuousData(TimeBasedData):
             samples_next_valid_interval = self.samples.iloc[idx_lower:idx_upper, :]
             result_samples = pd.concat([result_samples, samples_next_valid_interval], ignore_index=True)
         result_sample_times = np.concatenate(result_sample_times) # concatenate all the sample times 
-        
         return ContinuousData(samples=result_samples,
                               sample_times=result_sample_times,
                               valid_intervals=result_valid_intervals)

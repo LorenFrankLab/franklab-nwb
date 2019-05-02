@@ -16,9 +16,11 @@
 
 
 import numpy as np
+import pandas as pd
 import networkx as nx
 import nspike_helpers as ns
 import matplotlib.pyplot as plt
+import nwb_query as query
 from fl_extension import *
 
 
@@ -207,7 +209,7 @@ def separate_epochs_by_apparatus(data_dir, animal, day):
     return sleep_epochs, wtrackA_epochs, wtrackB_epochs
 
 
-def plot_position_by_epochs(animal, day, nwbf, epochs, title):
+def plot_position_by_epochs(animal, pos_series, epoch_ivls, epochs, title):
     '''
     Purpose:
         Plot animal position for particular epochs of a single day.
@@ -221,14 +223,22 @@ def plot_position_by_epochs(animal, day, nwbf, epochs, title):
     Returns:
         f: the Matplotlib figure object
     '''
+    # Convert position across-epochs into a nwb_query.ContinuousData object
+    samples = pd.DataFrame(data=pos_series.data[()], columns=['x', 'y'])
+    sample_times = pos_series.timestamps[()]
+    valid_intervals = query.TimeIntervals(epoch_ivls)
+    position = query.ContinuousData(samples=samples, 
+                                    sample_times=sample_times, 
+                                    valid_intervals=valid_intervals)
+    
     f = plt.figure()
     plt.title(title)
     plt.xlabel('X position (meters)')
     plt.ylabel('Y position (meters)')
     for epoch in epochs:
-        position_module_name = 'Position d{:d} e{:d}'.format(day, epoch)
-        position_h5py = nwbf.modules['Behavior']['Position'][position_module_name]
-        plt.plot(position_h5py.data[()][:, 0], position_h5py.data[()][:, 1], label='epoch%s' % epoch, zorder=1)
+        epoch_query = query.TimeIntervals(epoch_ivls[epoch-1, :])
+        epoch_pos = position.time_query(epoch_query)
+        plt.plot(epoch_pos.samples['x'], epoch_pos.samples['y'], label='epoch%s' % epoch, zorder=1)
     plt.legend(bbox_to_anchor=(1.05, 1.0), loc='upper left', borderaxespad=0.)
     return f
     
