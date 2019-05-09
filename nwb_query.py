@@ -4,6 +4,7 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from scipy.interpolate import interp1d
 import intervals as iv  # backend for TimeIntervals
+import bisect
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -16,7 +17,8 @@ class TimeIntervals():
     """
     Class for representing a list of non-overlapping time intervals.
     
-    Currently uses python-intervals as a backend, abstracting this from other classes that use intervals. 
+    Currently uses python-intervals as a backend for handling operations like intesection and union,
+    abstracting this from other classes that use intervals. 
     To replace with a different backend, change the methods accordingly.
     """
     
@@ -66,9 +68,25 @@ class TimeIntervals():
         '''Return the union of two TimeIntervals'''
         return self | time_intervals
 
+    def contains_which(self, times):
+        """Check which of the times are contained in the TimeIntervals.
+        More efficient that using __contains__ on every point."""
+        valid_indices = []
+        valid_points = []
+        # Use binary search to determine where each point times would go in the flattend
+        # list of query edges. The parity of this determines whether or not the point was in the query.
+        query_edges = self.to_array().flatten()
+        for i, t in enumerate(times):
+            bisect_idx = bisect.bisect(query_edges, t)
+            if bisect_idx % 2 != 0:  # odd means the point was in the query
+                valid_indices.append(i)
+                valid_points.append(t)
+        return valid_indices, valid_points
+        
+    
     def __contains__(self, t):
         """Check whether time t is in TimeIntervals. Supports the 'v in TimeIntervals' pattern."""
-        return t in self.intervals
+        return t in self.intervals  # python-intervals algo for contains seems slow (try binary search?)
     
     def __len__(self):
         """Return number of non-overlapping intervals (i.e. start/stop) in this TimeIntervals."""
@@ -167,8 +185,14 @@ class PointData(TimeBasedData):
         else:
             raise TypeError("PointData.query currently only supports queries of " +
                             "type nwb_query.EventData or nwb_query.TimeIntervals")
+            
         # Collect the valid point_times in the query
-        valid_indices = [i for (i, t) in enumerate(self.point_times) if t in query]
+        
+        valid_indices, valid_points = query.contains_which(self.point_times)
+        
+#         valid_indices = [i for (i, t) in enumerate(self.point_times) if t in query]  
+        
+        
         result_point_times = self.point_times[valid_indices]
         if self.marks:
             result_marks = self.marks[valid_indices, :]
@@ -467,10 +491,30 @@ class EventData(TimeBasedData):
                             "type nwb_query.EventData or nwb_query.TimeIntervals")
         return EventData(event_intervals=result_event_intervals,
                          valid_intervals=result_valid_intervals)
-        
+     
+    def to_array(self):
+        '''Create m x 2 numpy array from the set of event intervals in this EventData object.
+        The event intervals are, themselves, a TimeIntervals object, so we just call to_array() on that.'''
+        return self.event_intervals.to_array()
+    
     def __contains__(self, t):
         """Check whether time t is in the event intervals."""
         return t in self.event_intervals
+    
+    def contains_which(self, times):
+        """Check which of the times are contained in the TimeIntervals.
+        More efficient that using __contains__ on every point."""
+        valid_indices = []
+        valid_points = []
+        # Use binary search to determine where each point times would go in the flattend
+        # list of query edges. The parity of this determines whether or not the point was in the query.
+        query_edges = self.to_array().flatten()
+        for i, t in enumerate(times):
+            bisect_idx = bisect.bisect(query_edges, t)
+            if bisect_idx % 2 != 0:  # odd means the point was in the query
+                valid_indices.append(i)
+                valid_points.append(t)
+        return valid_indices, valid_points
     
     def valid_contain(self, t):
         """Check whether time t is in the EventData's valid intervals."""
