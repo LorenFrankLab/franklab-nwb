@@ -1,3 +1,34 @@
+# ------------------------------------------------
+#   FRANK LAB NWB QUERY PROTOTYPES
+# ------------------------------------------------
+#
+#  These classes prototype the kind of queries that the Frank Lab,
+#  and likely many other labs, will frequently require when analyzing data.
+#  In particular, we focus heavily on time queries. For examples of these classes being 
+#  used on real experimental data, see place_field_with_queries.ipynb (Frank Lab data) and
+#  frank_lab_queries_allen_data.ipynb (Allen Institute data).
+#
+#  Contents: 
+#
+#   Classes:
+#    - TimeIntervals: a set of non-overlapping time intervals (start/stop times), along
+#          with necessary operations on intervals, such as intersection and union
+#    - TimeBasedData: an abstract class representing any time-based data. The only requirement we
+#          have is that all time-based data contain "valid_intervals" over which the data are observed/valid
+#    - PointData: a set of point times occuring within some valid intervals (e.g. unit spiking occuring within
+#          the time intervals over which the cell was measured). Optionally there can also be data ("marks") 
+#          associated with each of those timestamps 
+#    - EventData: a set of time intervals occuring with some valid intervals (e.g. periods in which the animal
+#           runs above a threshold speed occuring within the overall period of measuring animal behavior).
+#    - ContinuousData: a set of sample times and sample values occuring within some valid intervals. This class is
+#           designed to handle sample measurements of something that is, theoretically, a continuous functions of time. 
+#           (e.g. samples of animal speed within the period that you are observing the animal)
+#
+#   Functions: Various plotting and helper functions for working with the above classes.
+# ------------------------------------------------
+
+
+
 import copy
 import numpy as np
 import pandas as pd
