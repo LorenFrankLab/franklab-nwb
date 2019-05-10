@@ -6,7 +6,7 @@
 #  These extensions allow for representing behavioral tasks (e.g. W-alternation) and apparatuses 
 #  (e.g. tracks, boxes).
 #
-#  To use the Frank Lab extensions, all you have to do is import this module into 
+#  To use the Frank Lab extensions, import this module into 
 #  your Python script (e.g. import fl_extension as fle). 
 #
 #  If you are a member of the Frank Lab you might also want to import the helper 

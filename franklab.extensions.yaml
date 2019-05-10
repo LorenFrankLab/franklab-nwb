@@ -9,7 +9,7 @@ groups:
   - name: help
     dtype: text
     doc: help doc
-    value: help value
+    value: Behavioral Apparatus
   groups:
   - neurodata_type_def: Node
     neurodata_type_inc: NWBDataInterface
@@ -21,7 +21,7 @@ groups:
     - name: help
       dtype: text
       doc: help doc
-      value: help value
+      value: Apparatus Node
     quantity: '*'
   - neurodata_type_def: Edge
     neurodata_type_inc: NWBDataInterface
@@ -30,7 +30,7 @@ groups:
     - name: help
       dtype: text
       doc: help doc
-      value: help value
+      value: Apparatus Edge
     datasets:
     - name: edge_nodes
       dtype: text
@@ -54,7 +54,7 @@ groups:
   - name: help
     dtype: text
     doc: help doc
-    value: help value
+    value: Behavioral Task
 - neurodata_type_def: PointNode
   neurodata_type_inc: Node
   doc: node representing a point in 2D space
@@ -62,7 +62,7 @@ groups:
   - name: help
     dtype: text
     doc: help doc
-    value: help value
+    value: Apparatus Point
   datasets:
   - name: coords
     dtype: float
@@ -81,7 +81,7 @@ groups:
   - name: help
     dtype: text
     doc: help doc
-    value: help value
+    value: Apparatus Segment
   datasets:
   - name: coords
     dtype: float
@@ -100,7 +100,7 @@ groups:
   - name: help
     dtype: text
     doc: help doc
-    value: help value
+    value: Apparatus Polygon
   datasets:
   - name: coords
     dtype: float
