@@ -75,6 +75,8 @@ class TimeIntervals():
         
     def to_array(self):
         '''Create m x 2 numpy array from the set of intervals in an TimeIntervals object'''
+        if self.intervals.is_empty(): # iv.empty() has len 1; it contains a special empty interval (I.inf, -I.inf)
+            return np.zeros((0,0))
         return np.array([[atomic_ivl.lower, atomic_ivl.upper] for atomic_ivl in self.intervals])
     
     def durations(self):
