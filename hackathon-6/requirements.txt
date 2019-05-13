@@ -1,0 +1,5 @@
+pynwb
+networkx
+matplotlib
+scipy
+python-dateutil
