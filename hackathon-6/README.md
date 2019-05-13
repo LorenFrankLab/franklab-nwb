@@ -1,4 +1,4 @@
-## Examples of NWB file creation and querying for Hackathon 6 at Janelia, May 2019
+## Examples of NWB file creation and querying for [Hackathon 6](https://github.com/NeurodataWithoutBorders/nwb_hackathons/tree/master/HCK06_2019_Janelia) at Janelia, May 2019
 
 Running against pynwb 'dev' branch as of May 10, 2019
 
