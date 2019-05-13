@@ -1,6 +1,0 @@
-namespaces:
-- doc: franklab_apparatus extensions
-  name: franklab_apparatus
-  schema:
-  - namespace: core
-  - source: franklab_apparatus.extensions.yaml

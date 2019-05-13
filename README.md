@@ -1,1 +1,0 @@
-Code to import data from the Frank Lab's legacy Matlab data format 'FilterFramework' (as used with the NSpike recording system, ca. ~2005-2017)

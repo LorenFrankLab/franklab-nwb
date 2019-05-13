@@ -1,6 +1,0 @@
-namespaces:
-- doc: multicontainerinterface extensions
-  name: multicontainerinterface
-  schema:
-  - namespace: core
-  - source: multicontainerinterface.extensions.yaml
