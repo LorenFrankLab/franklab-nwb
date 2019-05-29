@@ -205,9 +205,10 @@ class PointData(TimeBasedData):
         Returns
         -------
         query_result : PointData
-            New PointData object with the resulting valid_intervals being the intersection of the 
-            original valid_intervals and the query intervals. The resulting point_data and marks are those 
-            found in the resulting valid_intervals.
+            New PointData object with the resulting valid_intervals being the intersection of the
+            original valid_intervals and the query intervals. The resulting point_data and marks are those
+            found in the resulting valid_intervals (which will be the same as the marks found in the query
+            intervals, if the marks all lie within their valid_intervals, as they should).
         '''
         
         # Find the resulting valid_intervals where the data have support (i.e. intersect with the selection intervals)
@@ -362,9 +363,11 @@ class ContinuousData(TimeBasedData):
         
         Returns
         -------
-        A new ContinuousData object, where the resulting valid_intervals are the 
-        intersection of the valid_intervals of this ContinuousData and the provided time_intevals. 
-        The resulting samples and sample_times are those occurring in the resulting valid_intervals.
+        A new ContinuousData object, where the resulting valid_intervals are the
+        intersection of the valid_intervals of this ContinuousData and the query's time_intevals.
+        The resulting samples and sample_times are those occurring in the resulting valid_intervals
+        (which will be the same as the marks found in the query intervals, if the marks all lie
+        within their valid_intervals, as they should if the data is well-formed).
         """        
         
         # Constrain the resulting valid_intervals to where the data have support (i.e. intersect with selection intervals)
@@ -515,7 +518,7 @@ class EventData(TimeBasedData):
         # Find the resulting event_intervals and valid_intervals
         if isinstance(query, EventData):
             result_event_intervals = self.event_intervals & query.event_intervals
-            result_valid_intervals = self.valid_intervals & query.event_intervals   # confirm this
+            result_valid_intervals = self.valid_intervals & query.event_intervals
         elif isinstance(query, TimeIntervals):
             result_event_intervals = self.event_intervals & query
             result_valid_intervals = self.valid_intervals & query
