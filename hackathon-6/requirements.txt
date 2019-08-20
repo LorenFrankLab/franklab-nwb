@@ -3,3 +3,4 @@ networkx
 matplotlib
 scipy
 python-dateutil
+python-intervals
