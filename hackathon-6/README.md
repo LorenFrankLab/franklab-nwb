@@ -2,8 +2,7 @@
 
 Running against pynwb 'dev' branch as of May 14, 2019
 
-In addition to the pynwb requirements, you will need:
- `networkx matplotlib scipy python-dateutil`
+In addition to the pynwb requirements, you will need the packages listed in the top-level `requirements.txt` file.
 
 * Frank Lab dataset from CRCNS:
   * [Download link](https://portal.nersc.gov/project/crcns/download/hc-6) (requires CRCNS.org account) 
